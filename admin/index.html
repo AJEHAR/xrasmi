@@ -396,7 +396,7 @@ document.getElementById("btn-edit-save").addEventListener("click", async () => {
   } catch (e) {
     console.error(e);
     document.getElementById("edit-error").textContent = "Gagal simpan. Sila cuba lagi.";
-    tunjukToast("Gagal simpan pembetulan rekod.", "error");
+    tunjukToast("Gagal simpan pembetulan rekod — " + (e.message || "cuba lagi"), "error");
   }
 });
 document.getElementById("edit-nama-acara").addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("btn-edit-save").click(); });
@@ -474,7 +474,7 @@ async function handleAction(act, key) {
     tunjukToast(mesejToast, "success");
   } catch (e) {
     console.error(e);
-    tunjukToast("Gagal simpan perubahan. Sila cuba lagi.", "error");
+    tunjukToast("Gagal simpan perubahan — " + (e.message || "cuba lagi"), "error");
   }
 }
 

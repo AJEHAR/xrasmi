@@ -18,11 +18,11 @@
 // ============================================================
 
 const FIREBASE_CONFIG = {
-  apiKey: "GANTI_DENGAN_API_KEY_AWAK",
-  authDomain: "GANTI_DENGAN_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://GANTI_DENGAN_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "GANTI_DENGAN_PROJECT_ID",
-  storageBucket: "GANTI_DENGAN_PROJECT_ID.appspot.com",
-  messagingSenderId: "GANTI_DENGAN_SENDER_ID",
-  appId: "GANTI_DENGAN_APP_ID"
+  apiKey: "AIzaSyAW1UxMOt4LJgQXYRNfauyomxI7nijbFcc",
+  authDomain: "xrasmi-507ae.firebaseapp.com",
+  databaseURL: "https://xrasmi-507ae-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "xrasmi-507ae",
+  storageBucket: "xrasmi-507ae.firebasestorage.app",
+  messagingSenderId: "334049714900",
+  appId: "1:334049714900:web:ecff80e12fa03f7cbd5141"
 };

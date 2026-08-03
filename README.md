@@ -146,3 +146,18 @@ Ini akan papar `adminPassword` awak dalam teks biasa — **tanpa** perlu buka `/
 - ✅ **[Kritikal — race condition]** Semua operasi ubah status/rekod (Start/Bantahan/Rasmi/Undo/Edit/auto-transition) kini guna **Firebase Transaction** (baca-ubah-tulis atomic dgn auto-retry), bukan baca-cache-tulis-terus. Ni selesaikan senario BAHAYA: kalau admin tekan Bantahan ON **tepat pada masa sama** countdown sampai 00:00, cara LAMA akan overwrite/hilangkan bantahan tu secara senyap (acara tersalah auto-sah Rasmi walaupun ada bantahan aktif). Disahkan dgn simulasi konkrit — cara baharu betul-betul batalkan auto-transition bila bantahan dikesan semasa transaction, cara lama gagal
 - ✅ **34 unit test + simulasi automatik** dijalankan ke atas semua fungsi teras, logik validasi CSV, logik bunyi, dan race condition — semua lulus
 
+- ✅ **[Robustness]** Semua operasi Firebase (get/set/delete/transaction) kini ada **had masa 10 saat** + mesej ralat SEBENAR dipaparkan (bukan senyap) — termasuk amaran automatik kalau `firebase-config.js` masih placeholder, dan mesej jelas kalau Anonymous Auth belum di-enable
+
+---
+
+## 8. Troubleshooting — "Save Tiada Respon" / Data Hilang Selepas Refresh
+
+Kalau butang **Simpan** (Setting) atau mana-mana aksi (Start/Bantahan/dsb di Admin) tak bagi respon:
+
+1. **Buka DevTools browser** (`F12` atau klik-kanan → Inspect) → tab **Console**. Sejak kemas kini terkini, sistem akan papar mesej ralat JELAS di sini kalau apa-apa gagal (dulu senyap, sekarang tak).
+2. **Semak `firebase-config.js`** — pastikan TIADA nilai `GANTI_DENGAN_...` tertinggal (console akan beri amaran automatik kalau masih ada).
+3. **Semak Firebase Console → Authentication → Sign-in method → Anonymous** — mesti **Enable**. Ini punca PALING BIASA untuk "tiada respon" — kalau belum enable, sistem sekarang akan papar mesej jelas: *"Gagal simpan: auth/operation-not-allowed..."*.
+4. **Semak Firebase Console → Realtime Database → Rules** — mesti `{"rules": {".read": "auth != null", ".write": "auth != null"}}` (bukan `false` atau kosong).
+5. **Cuba hard refresh** (`Ctrl+Shift+R` / `Cmd+Shift+R`) — elak browser guna fail JS/CSS lama yang tersimpan dalam cache, terutama selepas re-deploy fail baharu.
+6. **Pastikan GitHub Pages dah selesai deploy versi TERKINI** — semak tab "Actions" di repo GitHub untuk pastikan build terakhir berjaya & guna fail paling baharu.
+7. Sejak kemas kini terkini, semua operasi Firebase ada **had masa 10 saat** — kalau betul-betul "hang" (bukan ralat serta-merta), sistem akan papar mesej timeout selepas 10 saat, bukan senyap selamanya.

@@ -75,7 +75,7 @@ async function initApp() {
     if (res && res.value) settings = { ...settings, ...res.value };
   } catch (e) {
     console.error("Gagal muat tetapan sedia ada:", e);
-    tunjukToast("Gagal muat tetapan sedia ada. Cuba refresh.", "error");
+    tunjukToast("Gagal muat tetapan — " + (e.message || "cuba refresh"), "error");
   }
   isiForm();
 }
@@ -119,8 +119,8 @@ document.getElementById("btn-save").addEventListener("click", async () => {
   } catch (e) {
     console.error(e);
     statusEl.style.color = "var(--red)";
-    statusEl.textContent = "Gagal simpan. Sila cuba lagi.";
-    tunjukToast("Gagal simpan tetapan. Sila cuba lagi.", "error");
+    statusEl.textContent = "Gagal simpan: " + (e.message || "Ralat tidak diketahui. Sila cuba lagi.");
+    tunjukToast("Gagal simpan tetapan — " + (e.message || "cuba lagi"), "error");
   }
 });
 
