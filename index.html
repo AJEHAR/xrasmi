@@ -154,12 +154,16 @@ async function tick() {
       mainBunyi("tamat");
     }
 
-    // Auto-transition ke rasmi (jika tiada bantahan)
+    // Auto-transition ke rasmi (jika tiada bantahan) — guna transaction, elak race dgn Admin/Board lain
     if (patutAutoRasmi(rekod)) {
-      rekod.status = "rasmi";
-      rekod.rasmiAt = Date.now();
       adaPerubahan = true;
-      try { await window.storage.set(key, rekod, true); } catch (e) { console.error(e); }
+      try {
+        await window.storage.transaction(key, (rekodServer) => {
+          if (!rekodServer) return rekodServer;
+          if (!patutAutoRasmi(rekodServer)) return rekodServer; // dah diubah client lain (contoh: bantahan baru ON) -> jangan overwrite
+          return { ...rekodServer, status: "rasmi", rasmiAt: Date.now() };
+        }, true);
+      } catch (e) { console.error(e); }
     }
   }
 

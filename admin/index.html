@@ -59,7 +59,7 @@
     </div>
     <div class="topbar-right">
       <a class="btn btn-ghost btn-sm" href="../" target="_blank">Papan ↗</a>
-      <a class="btn btn-ghost btn-sm" href="../setting/">Setting</a>
+      <a class="btn btn-ghost btn-sm" href="../setting/" target="_blank">Setting</a>
     </div>
   </div>
 
@@ -211,10 +211,14 @@ async function tick() {
     }
 
     if (patutAutoRasmi(rekod)) {
-      rekod.status = "rasmi";
-      rekod.rasmiAt = Date.now();
       adaPerubahan = true;
-      try { await window.storage.set(key, rekod, true); } catch (e) { console.error(e); }
+      try {
+        await window.storage.transaction(key, (rekodServer) => {
+          if (!rekodServer) return rekodServer;
+          if (!patutAutoRasmi(rekodServer)) return rekodServer;
+          return { ...rekodServer, status: "rasmi", rasmiAt: Date.now() };
+        }, true);
+      } catch (e) { console.error(e); }
     }
   }
   refreshCountdownCells();
@@ -360,8 +364,6 @@ function tutupEditModal() {
 document.getElementById("btn-edit-cancel").addEventListener("click", tutupEditModal);
 document.getElementById("btn-edit-save").addEventListener("click", async () => {
   if (!editKeySemasa) return;
-  const rekod = acaraMap[editKeySemasa];
-  if (!rekod) { tutupEditModal(); return; }
 
   const noAcara = document.getElementById("edit-no-acara").value.trim();
   const kategori = document.getElementById("edit-kategori").value.trim();
@@ -373,11 +375,21 @@ document.getElementById("btn-edit-save").addEventListener("click", async () => {
     return;
   }
 
-  // Cuma medan maklumat sahaja diubah — status/calledAt/adaBantahan/rasmiAt/durationMin TIDAK disentuh
-  const rekodBaharu = { ...rekod, noAcara, kategori, namaAcara, peringkat };
-
   try {
-    await window.storage.set(editKeySemasa, rekodBaharu, true);
+    // Transaction: merge 4 medan ni atas nilai SERVER TERKINI (bukan snapshot semasa modal dibuka)
+    // -> kalau status/countdown berubah (contoh: admin lain tekan Rasmi) SEMASA modal edit terbuka,
+    // perubahan tu TAK di-overwrite oleh Simpan Edit ni.
+    const hasil = await window.storage.transaction(editKeySemasa, (rekodServer) => {
+      if (!rekodServer) return rekodServer; // rekod dah dipadam (contoh: reimport CSV) -> abort
+      return { ...rekodServer, noAcara, kategori, namaAcara, peringkat };
+    }, true);
+
+    if (!hasil.committed) {
+      document.getElementById("edit-error").textContent = "Rekod dah tiada (mungkin dipadam). Sila refresh.";
+      tunjukToast("Gagal simpan — rekod dah tiada.", "error");
+      return;
+    }
+
     tutupEditModal();
     await loadData();
     tunjukToast(`Rekod #${noAcara} berjaya dikemas kini.`, "success");
@@ -394,54 +406,70 @@ document.addEventListener("keydown", (e) => {
 
 // ---------- Aksi status ----------
 async function handleAction(act, key) {
-  const rekod = acaraMap[key];
-  if (!rekod) return;
+  const rekodLocal = acaraMap[key]; // hanya utk paparan confirm dialog (nama acara) — logik SEBENAR guna nilai server dalam transaction
+  if (!rekodLocal) return;
+
+  if (act === "undo-start" && !confirm(`Undo Start untuk "${rekodLocal.namaAcara}"? Countdown akan direset.`)) return;
+  if (act === "undo-rasmi" && !confirm(`Undo Rasmi untuk "${rekodLocal.namaAcara}"? Rekod akan kembali ke Tidak Rasmi.`)) return;
 
   let autoRasmiSelepasBantahan = false;
-
-  if (act === "start") {
-    rekod.status = "countdown";
-    rekod.calledAt = Date.now();
-    rekod.durationMin = rekod.peringkat === "akhir" ? Number(settings.durasiA || 30) : Number(settings.durasiSA || 15);
-    rekod.adaBantahan = false;
-    rekod.rasmiAt = null;
-  } else if (act === "undo-start") {
-    if (!confirm(`Undo Start untuk "${rekod.namaAcara}"? Countdown akan direset.`)) return;
-    rekod.status = "menunggu";
-    rekod.calledAt = null;
-    rekod.durationMin = null;
-    rekod.adaBantahan = false;
-    rekod.rasmiAt = null;
-  } else if (act === "toggle-bantahan") {
-    rekod.adaBantahan = !rekod.adaBantahan;
-    if (!rekod.adaBantahan && isTamatMasa(rekod)) {
-      // bantahan baru dibuka & masa dah tamat -> auto lulus serta-merta
-      rekod.status = "rasmi";
-      rekod.rasmiAt = Date.now();
-      autoRasmiSelepasBantahan = true;
-    }
-  } else if (act === "rasmi") {
-    rekod.status = "rasmi";
-    rekod.adaBantahan = false; // override rasmi anggap bantahan telah diselesaikan/dilangkau
-    rekod.rasmiAt = Date.now();
-  } else if (act === "undo-rasmi") {
-    if (!confirm(`Undo Rasmi untuk "${rekod.namaAcara}"? Rekod akan kembali ke Tidak Rasmi.`)) return;
-    rekod.status = "countdown"; // calledAt & durationMin KEKAL (bukan restart)
-    rekod.rasmiAt = null;
-  }
-
-  const mesejToast = {
-    "start": `Countdown dimulakan — #${rekod.noAcara}`,
-    "undo-start": `Start dibatalkan (Undo) — #${rekod.noAcara}`,
-    "toggle-bantahan": autoRasmiSelepasBantahan
-      ? `Bantahan dimatikan & terus AUTO-LULUS ke Rasmi (masa dah tamat) — #${rekod.noAcara}`
-      : (rekod.adaBantahan ? `Bantahan diaktifkan — #${rekod.noAcara}` : `Bantahan dimatikan — #${rekod.noAcara}`),
-    "rasmi": `Disahkan RASMI — #${rekod.noAcara}`,
-    "undo-rasmi": `Rasmi dibatalkan (Undo) — #${rekod.noAcara}`
-  }[act] || "Dikemas kini.";
+  let rekodTerkini = null;
 
   try {
-    await window.storage.set(key, rekod, true);
+    const hasil = await window.storage.transaction(key, (rekodServer) => {
+      // Firebase boleh panggil fungsi ni BERKALI-KALI kalau server berubah semasa transaction cuba commit
+      // (contoh: admin lain baru sahaja ubah rekod ni) — logik kena BOLEH diulang (idempotent) berdasarkan nilai TERKINI.
+      if (rekodServer === null || rekodServer === undefined) return rekodServer; // rekod dah dipadam org lain -> abort, jangan cipta semula
+      const r = { ...rekodServer };
+      autoRasmiSelepasBantahan = false;
+
+      if (act === "start") {
+        r.status = "countdown";
+        r.calledAt = Date.now();
+        r.durationMin = r.peringkat === "akhir" ? Number(settings.durasiA || 30) : Number(settings.durasiSA || 15);
+        r.adaBantahan = false;
+        r.rasmiAt = null;
+      } else if (act === "undo-start") {
+        r.status = "menunggu";
+        r.calledAt = null;
+        r.durationMin = null;
+        r.adaBantahan = false;
+        r.rasmiAt = null;
+      } else if (act === "toggle-bantahan") {
+        r.adaBantahan = !r.adaBantahan;
+        if (!r.adaBantahan && isTamatMasa(r)) {
+          r.status = "rasmi";
+          r.rasmiAt = Date.now();
+          autoRasmiSelepasBantahan = true;
+        }
+      } else if (act === "rasmi") {
+        r.status = "rasmi";
+        r.adaBantahan = false;
+        r.rasmiAt = Date.now();
+      } else if (act === "undo-rasmi") {
+        r.status = "countdown";
+        r.rasmiAt = null;
+      }
+      rekodTerkini = r;
+      return r;
+    }, true);
+
+    if (!hasil.committed || !rekodTerkini) {
+      tunjukToast("Rekod dah tiada / dipadam oleh admin lain — dibatalkan.", "error");
+      await loadData();
+      return;
+    }
+
+    const mesejToast = {
+      "start": `Countdown dimulakan — #${rekodTerkini.noAcara}`,
+      "undo-start": `Start dibatalkan (Undo) — #${rekodTerkini.noAcara}`,
+      "toggle-bantahan": autoRasmiSelepasBantahan
+        ? `Bantahan dimatikan & terus AUTO-LULUS ke Rasmi (masa dah tamat) — #${rekodTerkini.noAcara}`
+        : (rekodTerkini.adaBantahan ? `Bantahan diaktifkan — #${rekodTerkini.noAcara}` : `Bantahan dimatikan — #${rekodTerkini.noAcara}`),
+      "rasmi": `Disahkan RASMI — #${rekodTerkini.noAcara}`,
+      "undo-rasmi": `Rasmi dibatalkan (Undo) — #${rekodTerkini.noAcara}`
+    }[act] || "Dikemas kini.";
+
     await loadData(); // muat semula dari server — jangan percaya tempatan sahaja
     tunjukToast(mesejToast, "success");
   } catch (e) {

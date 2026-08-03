@@ -51,6 +51,18 @@ window.storage = {
     return { key, deleted: true, shared };
   },
 
+  // Operasi ATOMIC baca-ubah-tulis — selesaikan race condition bila 2+ client
+  // (contoh: 2 admin) cuba ubah rekod SAMA serentak. Firebase automatik ULANG
+  // updateFn dengan nilai TERKINI server kalau konflik dikesan (optimistic
+  // concurrency) — jadi tiada perubahan yang "hilang senyap" akibat last-write-wins.
+  // updateFn(nilaiSemasaDariServer) -> pulangkan nilai BAHARU (atau `undefined` untuk abort).
+  async transaction(key, updateFn, shared = false) {
+    await _ensureAuth();
+    const path = (shared ? "shared/" : "personal/") + key;
+    const hasil = await _db.ref(path).transaction(updateFn);
+    return { key, value: hasil.snapshot ? hasil.snapshot.val() : null, committed: hasil.committed, shared };
+  },
+
   // Baca SEMUA key+value dengan prefix tertentu dalam SATU panggilan.
   async getAllByPrefix(prefix, shared = false) {
     await _ensureAuth();

@@ -143,5 +143,6 @@ Ini akan papar `adminPassword` awak dalam teks biasa — **tanpa** perlu buka `/
 - ✅ Import CSV kini ada **had saiz fail (2MB)** — elak fail salah/rosak besar tersilap upload
 - ✅ **[Ciri baharu] Butang Edit (✎)** pada setiap kad — betulkan No Acara/Kategori/Nama Acara/Peringkat SATU rekod tanpa perlu re-upload CSV penuh (yang akan reset status SEMUA acara lain)
 - ✅ **[Kritikal — audio]** Bunyi Bantahan/Tamat Masa **senyap pada kitaran kedua** kalau rekod di-Undo Start lepas tu di-Start semula (penanda "dah main" tak pernah cleanup). Dibaiki dengan kesan perubahan `calledAt` (= kitaran countdown baharu) untuk reset penanda bunyi secara automatik
-- ✅ **34 unit test + simulasi automatik** dijalankan ke atas semua fungsi teras, logik validasi CSV, dan logik bunyi — semua lulus
+- ✅ **[Kritikal — race condition]** Semua operasi ubah status/rekod (Start/Bantahan/Rasmi/Undo/Edit/auto-transition) kini guna **Firebase Transaction** (baca-ubah-tulis atomic dgn auto-retry), bukan baca-cache-tulis-terus. Ni selesaikan senario BAHAYA: kalau admin tekan Bantahan ON **tepat pada masa sama** countdown sampai 00:00, cara LAMA akan overwrite/hilangkan bantahan tu secara senyap (acara tersalah auto-sah Rasmi walaupun ada bantahan aktif). Disahkan dgn simulasi konkrit — cara baharu betul-betul batalkan auto-transition bila bantahan dikesan semasa transaction, cara lama gagal
+- ✅ **34 unit test + simulasi automatik** dijalankan ke atas semua fungsi teras, logik validasi CSV, logik bunyi, dan race condition — semua lulus
 

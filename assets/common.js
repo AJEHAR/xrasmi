@@ -6,7 +6,7 @@ const PREFIX = "ktr"; // Keputusan Tak Rasmi — ubah kalau nak kongsi 1 Firebas
 const ACARA_PREFIX = PREFIX + ":acara:";
 const SETTINGS_KEY = PREFIX + ":settings";
 
-const FIXED_PASSWORD = "ktr-admin-2026"; // sandaran tertanam dalam kod — TUKAR ni. Peringkat UI sahaja, BUKAN keselamatan sebenar.
+const FIXED_PASSWORD = "ajehar"; // sandaran tertanam dalam kod — Peringkat UI sahaja, BUKAN keselamatan sebenar.
 
 function keyAcara(id) {
   return ACARA_PREFIX + id;
