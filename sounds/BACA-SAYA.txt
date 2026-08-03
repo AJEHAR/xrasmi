@@ -1,0 +1,13 @@
+Letakkan DUA fail bunyi di dalam folder ini dengan nama TEPAT seperti berikut:
+
+1. bantahan.mp3      — bunyi alert bila status "Bantahan" diaktifkan (cadangan: bunyi urgent/siren pendek)
+2. tamat-masa.mp3    — bunyi alert bila countdown sampai 00:00 (cadangan: bunyi loceng/ding, berbeza dari bantahan)
+
+Kedua-dua fail akan dimainkan secara automatik di skrin Board (/) dan Admin (/admin/),
+selepas pengguna klik butang "Mula & Benarkan Bunyi" pada modal permulaan (sekatan
+autoplay pelayar memerlukan gerak isyarat pengguna sekali sahaja).
+
+Format yang disokong: .mp3 (disyorkan). Kalau nak guna format lain (.wav/.ogg),
+tukar path 'src' pada tag <audio> dalam index.html dan admin/index.html.
+
+Fail ini (BACA-SAYA.txt) boleh dipadam selepas bunyi sebenar diletakkan.

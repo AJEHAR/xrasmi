@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Keputusan Tak Rasmi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<!-- Modal gate kata laluan (akses terus /admin/ tanpa melalui board) -->
+<div class="modal-overlay" id="modal-gate">
+  <div class="modal-box">
+    <h2>Panel Admin</h2>
+    <p>Masukkan kata laluan untuk teruskan.</p>
+    <input type="password" id="gate-pass-input" placeholder="Kata laluan">
+    <div class="modal-error" id="gate-pass-error"></div>
+    <button class="btn btn-blue btn-block" id="btn-gate-submit">Masuk</button>
+  </div>
+</div>
+
+<!-- Modal audio -->
+<div class="modal-overlay" id="modal-audio" style="display:none;">
+  <div class="modal-box">
+    <h2>Tekan Untuk Mula</h2>
+    <p>Panel admin turut memainkan bunyi amaran automatik. Sila tekan untuk benarkan audio.</p>
+    <button class="btn btn-blue btn-block" id="btn-unlock-audio">Mula &amp; Benarkan Bunyi</button>
+  </div>
+</div>
+
+<div id="app-content" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1 class="topbar-title">Admin — <span id="event-title">Keputusan Tak Rasmi</span></h1>
+      <div class="sync-indicator"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Menyegerak...</span></div>
+    </div>
+    <div class="topbar-right">
+      <a class="btn btn-ghost btn-sm" href="../" target="_blank">Papan ↗</a>
+      <a class="btn btn-ghost btn-sm" href="../setting/">Setting</a>
+    </div>
+  </div>
+
+  <div class="admin-wrap">
+
+    <div class="admin-toolbar">
+      <input type="text" class="search-input" id="search-input" placeholder="Cari No Acara / Nama / Kategori...">
+      <div class="tabs" id="tab-peringkat">
+        <button class="tab active" data-val="">Semua Peringkat</button>
+        <button class="tab" data-val="separuh_akhir">SA</button>
+        <button class="tab" data-val="akhir">A</button>
+      </div>
+    </div>
+
+    <div class="admin-toolbar">
+      <label class="btn btn-blue btn-sm" for="csv-input" style="cursor:pointer;">⭱ Import CSV (Padam &amp; Ganti)</label>
+      <input type="file" id="csv-input" accept=".csv" style="display:none;">
+      <span class="form-hint" id="csv-hint">Header diperlukan: No Acara, Kategori, Nama Acara, Peringkat</span>
+    </div>
+
+    <div class="import-report" id="import-report" style="display:none;"></div>
+
+    <div class="admin-kanban">
+      <div class="kanban-col col-belum">
+        <div class="kanban-col-header">
+          <div class="kanban-col-title">Belum Tayang <span class="kanban-count" id="count-belum">0</span></div>
+          <div class="kanban-col-sub">Belum bermula — belum keluar di Papan</div>
+        </div>
+        <div class="kanban-scroll" id="col-belum"></div>
+      </div>
+
+      <div class="kanban-col col-start">
+        <div class="kanban-col-header">
+          <div class="kanban-col-title">Start <span class="kanban-count" id="count-start">0</span></div>
+          <div class="kanban-col-sub">Countdown berjalan — keluar di Papan (Tidak Rasmi)</div>
+        </div>
+        <div class="kanban-scroll" id="col-start"></div>
+      </div>
+
+      <div class="kanban-col col-bantahan">
+        <div class="kanban-col-header">
+          <div class="kanban-col-title">Bantahan <span class="kanban-count" id="count-bantahan">0</span></div>
+          <div class="kanban-col-sub">Dibekukan sehingga Rasmi ditekan</div>
+        </div>
+        <div class="kanban-scroll" id="col-bantahan"></div>
+      </div>
+
+      <div class="kanban-col col-rasmi">
+        <div class="kanban-col-header">
+          <div class="kanban-col-title">Rasmi <span class="kanban-count" id="count-rasmi">0</span></div>
+          <div class="kanban-col-sub">Disahkan — keluar di Papan (Rasmi)</div>
+        </div>
+        <div class="kanban-scroll" id="col-rasmi"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<audio id="audio-bantahan" src="../sounds/bantahan.mp3" preload="auto"></audio>
+<audio id="audio-tamat" src="../sounds/tamat-masa.mp3" preload="auto"></audio>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../storage.js"></script>
+<script src="../assets/common.js"></script>
+
+<script>
+let settings = { eventTitle: "Keputusan Tak Rasmi", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
+let acaraMap = {};
+let searchTerm = "";
+let filterPeringkat = "";
+let bulkOperationInProgress = false;
+let bunyiBantahanDimainkan = new Set();
+let bunyiTamatDimainkan = new Set();
+let lastSyncAt = null;
+
+// ---------- Gate kata laluan ----------
+const GATE_SESSION_KEY = "ktr_admin_gate_ok";
+function tryEnterGate(val) {
+  return sahkanKataLaluan(val, settings);
+}
+async function initGate() {
+  // Muat settings dulu (tanpa auth gate) supaya adminPassword custom boleh disemak
+  try {
+    const res = await window.storage.get(SETTINGS_KEY, true);
+    if (res && res.value) settings = { ...settings, ...res.value };
+  } catch (e) { console.warn("Gagal pra-muat settings untuk gate:", e); }
+
+  if (sessionStorage.getItem(GATE_SESSION_KEY) === "true") {
+    unlockApp();
+  }
+}
+document.getElementById("btn-gate-submit").addEventListener("click", submitGate);
+document.getElementById("gate-pass-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitGate(); });
+function submitGate() {
+  const val = document.getElementById("gate-pass-input").value;
+  if (tryEnterGate(val)) {
+    sessionStorage.setItem(GATE_SESSION_KEY, "true");
+    unlockApp();
+  } else {
+    document.getElementById("gate-pass-error").textContent = "Kata laluan salah.";
+  }
+}
+function unlockApp() {
+  document.getElementById("modal-gate").style.display = "none";
+  document.getElementById("app-content").style.display = "block";
+  checkModalAudio();
+  loadData();
+  setInterval(loadData, 3000);
+  setInterval(tick, 1000);
+}
+
+// ---------- Data ----------
+async function loadData() {
+  if (bulkOperationInProgress) return;
+  try {
+    const [settingsRes, acaraRes] = await Promise.all([
+      window.storage.get(SETTINGS_KEY, true),
+      window.storage.getAllByPrefix(ACARA_PREFIX, true)
+    ]);
+    if (settingsRes && settingsRes.value) settings = { ...settings, ...settingsRes.value };
+    acaraMap = acaraRes || {};
+    lastSyncAt = Date.now();
+    setSyncStatus(true);
+    document.getElementById("event-title").textContent = settings.eventTitle || "Keputusan Tak Rasmi";
+    renderKanban();
+  } catch (e) {
+    console.error("Gagal muat data, kekalkan paparan sedia ada:", e);
+    setSyncStatus(false);
+  }
+}
+function setSyncStatus(ok) {
+  document.getElementById("sync-dot").className = "sync-dot" + (ok ? "" : " off");
+}
+function updateSyncText() {
+  const el = document.getElementById("sync-text");
+  if (!lastSyncAt) { el.textContent = "Menyegerak..."; return; }
+  const s = Math.round((Date.now() - lastSyncAt) / 1000);
+  el.textContent = "Segerak terakhir: " + s + "s lalu";
+}
+
+// ---------- Tick: auto-transition + bunyi ----------
+async function tick() {
+  if (bulkOperationInProgress) return;
+  updateSyncText();
+  let adaPerubahan = false;
+
+  for (const [key, rekod] of Object.entries(acaraMap)) {
+    if (rekod.status !== "countdown") continue;
+
+    if (rekod.adaBantahan && !bunyiBantahanDimainkan.has(rekod.id)) {
+      bunyiBantahanDimainkan.add(rekod.id);
+      mainBunyi("bantahan");
+    }
+    if (!rekod.adaBantahan) bunyiBantahanDimainkan.delete(rekod.id);
+
+    if (isTamatMasa(rekod) && !bunyiTamatDimainkan.has(rekod.id)) {
+      bunyiTamatDimainkan.add(rekod.id);
+      mainBunyi("tamat");
+    }
+
+    if (patutAutoRasmi(rekod)) {
+      rekod.status = "rasmi";
+      adaPerubahan = true;
+      try { await window.storage.set(key, rekod, true); } catch (e) { console.error(e); }
+    }
+  }
+  refreshCountdownCells();
+  if (adaPerubahan) renderKanban();
+}
+function mainBunyi(id) {
+  if (!audioSudahDibenarkan()) return;
+  const el = document.getElementById(id === "bantahan" ? "audio-bantahan" : "audio-tamat");
+  el.currentTime = 0;
+  el.play().catch((e) => console.warn("Audio disekat:", e));
+}
+
+// ---------- Render Kanban (4 panel) ----------
+function passFilter(r) {
+  if (filterPeringkat && r.peringkat !== filterPeringkat) return false;
+  if (searchTerm) {
+    const t = searchTerm.toLowerCase();
+    const gab = (r.noAcara + " " + r.namaAcara + " " + r.kategori).toLowerCase();
+    if (!gab.includes(t)) return false;
+  }
+  return true;
+}
+
+// Tentukan panel Kanban mana rekod patut duduk
+function panelUntuk(r) {
+  if (r.status === "menunggu") return "belum";
+  if (r.status === "rasmi") return "rasmi";
+  if (r.status === "countdown") return r.adaBantahan ? "bantahan" : "start";
+  return "belum";
+}
+
+function renderKanban() {
+  const semua = Object.entries(acaraMap)
+    .filter(([, r]) => passFilter(r))
+    .sort(([, a], [, b]) => naturalCompare(a.noAcara, b.noAcara));
+
+  const kumpulan = { belum: [], start: [], bantahan: [], rasmi: [] };
+  semua.forEach(([key, r]) => kumpulan[panelUntuk(r)].push([key, r]));
+
+  renderKanbanCol("belum", kumpulan.belum, "Tiada acara belum tayang.");
+  renderKanbanCol("start", kumpulan.start, "Tiada acara sedang countdown.");
+  renderKanbanCol("bantahan", kumpulan.bantahan, "Tiada bantahan aktif.");
+  renderKanbanCol("rasmi", kumpulan.rasmi, "Belum ada keputusan rasmi.");
+
+  wireCardActions();
+}
+
+function renderKanbanCol(namaPanel, senarai, mesejKosong) {
+  document.getElementById("count-" + namaPanel).textContent = senarai.length;
+  const el = document.getElementById("col-" + namaPanel);
+  el.innerHTML = senarai.length === 0
+    ? `<div class="kanban-empty">${mesejKosong}</div>`
+    : senarai.map(([key, r]) => kanbanCardHtml(namaPanel, key, r)).join("");
+}
+
+function kanbanCardHtml(namaPanel, key, r) {
+  const badgeCls = r.peringkat === "akhir" ? "badge-peringkat-a" : "badge-peringkat-sa";
+  const pulseCls = namaPanel === "bantahan" ? " pulse-bantahan" : "";
+  const countdownHtml = (namaPanel === "start" || namaPanel === "bantahan")
+    ? `<div class="countdown" data-countdown-id="${escapeHtml(r.id)}">${formatMMSS(computeRemainingMs(r))}</div>`
+    : "";
+
+  let aksiHtml = "";
+  if (namaPanel === "belum") {
+    aksiHtml = `<button class="btn btn-blue btn-sm" data-act="start" data-key="${escapeHtml(key)}">Start</button>`;
+  } else if (namaPanel === "start" || namaPanel === "bantahan") {
+    aksiHtml = `
+      <button class="btn btn-ghost btn-sm" data-act="undo-start" data-key="${escapeHtml(key)}">↺ Undo</button>
+      <button class="btn btn-amber btn-sm${r.adaBantahan ? " active" : ""}" data-act="toggle-bantahan" data-key="${escapeHtml(key)}">${r.adaBantahan ? "Bantahan ●" : "Bantahan"}</button>
+      <button class="btn btn-green btn-sm" data-act="rasmi" data-key="${escapeHtml(key)}">Rasmi</button>`;
+  } else if (namaPanel === "rasmi") {
+    aksiHtml = `<button class="btn btn-ghost btn-sm" data-act="undo-rasmi" data-key="${escapeHtml(key)}">↺ Undo Rasmi</button>`;
+  }
+
+  return `
+    <div class="kanban-card${pulseCls}">
+      <div class="kanban-card-top">
+        <span class="kanban-card-no">#${escapeHtml(r.noAcara)}</span>
+        <span class="badge ${badgeCls}">${escapeHtml(labelPeringkat(r.peringkat))}</span>
+      </div>
+      <div class="kanban-card-nama">${escapeHtml(r.namaAcara)}</div>
+      <div class="kanban-card-kategori">${escapeHtml(r.kategori)}</div>
+      ${countdownHtml}
+      <div class="kanban-card-actions">${aksiHtml}${keputusanButtonHtml(settings)}</div>
+    </div>`;
+}
+
+function refreshCountdownCells() {
+  document.querySelectorAll("[data-countdown-id]").forEach((el) => {
+    const rekod = acaraMap[keyAcara(el.getAttribute("data-countdown-id"))];
+    if (!rekod) return;
+    el.textContent = formatMMSS(computeRemainingMs(rekod));
+  });
+}
+
+function wireCardActions() {
+  document.querySelectorAll("[data-act]").forEach((btn) => {
+    btn.addEventListener("click", () => handleAction(btn.getAttribute("data-act"), btn.getAttribute("data-key")));
+  });
+}
+
+// ---------- Aksi status ----------
+async function handleAction(act, key) {
+  const rekod = acaraMap[key];
+  if (!rekod) return;
+
+  if (act === "start") {
+    rekod.status = "countdown";
+    rekod.calledAt = Date.now();
+    rekod.durationMin = rekod.peringkat === "akhir" ? Number(settings.durasiA || 30) : Number(settings.durasiSA || 15);
+    rekod.adaBantahan = false;
+  } else if (act === "undo-start") {
+    if (!confirm(`Undo Start untuk "${rekod.namaAcara}"? Countdown akan direset.`)) return;
+    rekod.status = "menunggu";
+    rekod.calledAt = null;
+    rekod.durationMin = null;
+    rekod.adaBantahan = false;
+  } else if (act === "toggle-bantahan") {
+    rekod.adaBantahan = !rekod.adaBantahan;
+    if (!rekod.adaBantahan && isTamatMasa(rekod)) {
+      // bantahan baru dibuka & masa dah tamat -> auto lulus serta-merta
+      rekod.status = "rasmi";
+    }
+  } else if (act === "rasmi") {
+    rekod.status = "rasmi";
+    rekod.adaBantahan = false; // override rasmi anggap bantahan telah diselesaikan/dilangkau
+  } else if (act === "undo-rasmi") {
+    if (!confirm(`Undo Rasmi untuk "${rekod.namaAcara}"? Rekod akan kembali ke Tidak Rasmi.`)) return;
+    rekod.status = "countdown"; // calledAt & durationMin KEKAL (bukan restart)
+  }
+
+  try {
+    await window.storage.set(key, rekod, true);
+    await loadData(); // muat semula dari server — jangan percaya tempatan sahaja
+  } catch (e) {
+    console.error(e);
+    alert("Gagal simpan perubahan. Sila cuba lagi.");
+  }
+}
+
+// ---------- Carian & tapisan ----------
+document.getElementById("search-input").addEventListener("input", (e) => {
+  searchTerm = e.target.value;
+  renderKanban();
+});
+document.getElementById("tab-peringkat").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab");
+  if (!btn) return;
+  document.querySelectorAll("#tab-peringkat .tab").forEach((t) => t.classList.remove("active"));
+  btn.classList.add("active");
+  filterPeringkat = btn.getAttribute("data-val");
+  renderKanban();
+});
+
+// ---------- Import CSV: Padam Semua & Ganti ----------
+document.getElementById("csv-input").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  await importCSV(file);
+  e.target.value = ""; // reset supaya boleh pilih fail sama semula
+});
+
+async function importCSV(file) {
+  const bilanganSedia = Object.keys(acaraMap).length;
+  const ok = confirm(`Import akan PADAM semua ${bilanganSedia} acara sedia ada dan gantikan sepenuhnya dengan data dari fail ini. Teruskan?`);
+  if (!ok) return;
+
+  bulkOperationInProgress = true;
+  const reportEl = document.getElementById("import-report");
+  reportEl.style.display = "block";
+  reportEl.textContent = "Memproses import...";
+
+  try {
+    // 1. Padam semua rekod acara lama
+    const keyLama = Object.keys(acaraMap);
+    for (const key of keyLama) {
+      await window.storage.delete(key, true);
+    }
+
+    // 2. Parse & import baharu — header ditrim & padan case-insensitive (elak silap "no acara" vs "No Acara")
+    const text = await file.text();
+    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
+
+    function cariMedan(row, namaSasaran) {
+      const kunci = Object.keys(row).find((k) => k.trim().toLowerCase() === namaSasaran.toLowerCase());
+      return kunci ? row[kunci] : "";
+    }
+
+    let baharu = 0, gagal = 0;
+    for (const row of parsed.data) {
+      const peringkat = parsePeringkat(cariMedan(row, "Peringkat"));
+      if (!peringkat) { gagal++; continue; }
+      const noAcara = String(cariMedan(row, "No Acara") || "").trim();
+      const kategori = String(cariMedan(row, "Kategori") || "").trim();
+      const namaAcara = String(cariMedan(row, "Nama Acara") || "").trim();
+      if (!noAcara && !namaAcara) { gagal++; continue; }
+
+      const id = uid();
+      const rekodBaharu = {
+        id, noAcara, kategori, namaAcara, peringkat,
+        status: "menunggu", adaBantahan: false, calledAt: null, durationMin: null
+      };
+      await window.storage.set(keyAcara(id), rekodBaharu, true);
+      baharu++;
+    }
+
+    reportEl.textContent = `Import selesai: ${baharu} acara berjaya ditambah, ${gagal} baris gagal (peringkat tak sah / data tak lengkap).`;
+  } catch (e) {
+    console.error(e);
+    reportEl.textContent = "Import gagal: " + e.message;
+  } finally {
+    bulkOperationInProgress = false;
+    await loadData();
+  }
+}
+
+// ---------- Modal audio ----------
+function checkModalAudio() {
+  document.getElementById("modal-audio").style.display = audioSudahDibenarkan() ? "none" : "flex";
+}
+document.getElementById("btn-unlock-audio").addEventListener("click", () => {
+  tandaAudioDibenarkan();
+  ["audio-bantahan", "audio-tamat"].forEach((id) => {
+    const el = document.getElementById(id);
+    el.play().then(() => { el.pause(); el.currentTime = 0; }).catch(() => {});
+  });
+  checkModalAudio();
+});
+
+// ---------- Init ----------
+initGate();
+</script>
+</body>
+</html>

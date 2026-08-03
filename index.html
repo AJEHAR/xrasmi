@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keputusan Tak Rasmi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <h1 class="topbar-title" id="event-title">Keputusan Tak Rasmi</h1>
+    <div class="sync-indicator"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Menyegerak...</span></div>
+  </div>
+  <div class="topbar-right">
+    <div class="tabs" id="tab-peringkat">
+      <button class="tab active" data-val="">Semua</button>
+      <button class="tab" data-val="separuh_akhir">SA</button>
+      <button class="tab" data-val="akhir">A</button>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="btn-open-admin" title="Akses Admin">⚙</button>
+  </div>
+</div>
+
+<div class="board-grid">
+  <div class="board-panel">
+    <div class="panel-header">
+      <span class="panel-title tidakrasmi">Tidak Rasmi</span>
+      <span class="panel-count" id="count-tidakrasmi">0</span>
+    </div>
+    <div class="panel-scroll" id="list-tidakrasmi">
+      <div class="panel-empty">Tiada acara sedang berjalan.</div>
+    </div>
+  </div>
+  <div class="board-panel">
+    <div class="panel-header">
+      <span class="panel-title rasmi">Rasmi</span>
+      <span class="panel-count" id="count-rasmi">0</span>
+    </div>
+    <div class="panel-scroll" id="list-rasmi">
+      <div class="panel-empty">Belum ada keputusan rasmi.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Tekan untuk Mula (kebenaran audio automatik) -->
+<div class="modal-overlay" id="modal-audio">
+  <div class="modal-box">
+    <h2>Tekan Untuk Mula</h2>
+    <p>Papan ini memainkan bunyi amaran automatik (bantahan &amp; tamat masa). Sila tekan butang di bawah untuk benarkan audio pada pelayar ini.</p>
+    <button class="btn btn-blue btn-block" id="btn-unlock-audio">Mula &amp; Benarkan Bunyi</button>
+  </div>
+</div>
+
+<!-- Modal: kata laluan admin -->
+<div class="modal-overlay" id="modal-admin" style="display:none;">
+  <div class="modal-box">
+    <h2>Akses Admin</h2>
+    <p>Masukkan kata laluan untuk buka panel kawalan pada tab baharu.</p>
+    <input type="password" id="admin-pass-input" placeholder="Kata laluan">
+    <div class="modal-error" id="admin-pass-error"></div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-ghost btn-block" id="btn-admin-cancel">Batal</button>
+      <button class="btn btn-blue btn-block" id="btn-admin-submit">Buka</button>
+    </div>
+  </div>
+</div>
+
+<audio id="audio-bantahan" src="sounds/bantahan.mp3" preload="auto"></audio>
+<audio id="audio-tamat" src="sounds/tamat-masa.mp3" preload="auto"></audio>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="storage.js"></script>
+<script src="assets/common.js"></script>
+
+<script>
+let settings = { eventTitle: "Keputusan Tak Rasmi", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
+let acaraMap = {};        // { firebaseKey: rekod }
+let filterPeringkat = "";
+let bunyiBantahanDimainkan = new Set();
+let bunyiTamatDimainkan = new Set();
+let lastSyncAt = null;
+
+function jamAcara() { return Object.values(acaraMap); }
+
+async function loadData() {
+  try {
+    const [settingsRes, acaraRes] = await Promise.all([
+      window.storage.get(SETTINGS_KEY, true),
+      window.storage.getAllByPrefix(ACARA_PREFIX, true)
+    ]);
+    if (settingsRes && settingsRes.value) settings = { ...settings, ...settingsRes.value };
+    acaraMap = acaraRes || {};
+    lastSyncAt = Date.now();
+    setSyncStatus(true);
+    document.getElementById("event-title").textContent = settings.eventTitle || "Keputusan Tak Rasmi";
+    renderFull();
+  } catch (e) {
+    console.error("Gagal muat data, kekalkan paparan sedia ada:", e);
+    setSyncStatus(false);
+  }
+}
+
+function setSyncStatus(ok) {
+  document.getElementById("sync-dot").className = "sync-dot" + (ok ? "" : " off");
+}
+
+function updateSyncText() {
+  const el = document.getElementById("sync-text");
+  if (!lastSyncAt) { el.textContent = "Menyegerak..."; return; }
+  const s = Math.round((Date.now() - lastSyncAt) / 1000);
+  el.textContent = "Segerak terakhir: " + s + "s lalu";
+}
+
+// ---------- Auto-transition + bunyi (tick ringan setiap saat) ----------
+async function tick() {
+  updateSyncText();
+  let adaPerubahan = false;
+
+  for (const [key, rekod] of Object.entries(acaraMap)) {
+    if (rekod.status !== "countdown") continue;
+
+    // Bunyi bantahan — main sekali sahaja bila flag ON
+    if (rekod.adaBantahan && !bunyiBantahanDimainkan.has(rekod.id)) {
+      bunyiBantahanDimainkan.add(rekod.id);
+      mainBunyi("bantahan");
+    }
+    if (!rekod.adaBantahan) bunyiBantahanDimainkan.delete(rekod.id);
+
+    // Bunyi tamat masa — main sekali sahaja bila countdown sampai 0
+    if (isTamatMasa(rekod) && !bunyiTamatDimainkan.has(rekod.id)) {
+      bunyiTamatDimainkan.add(rekod.id);
+      mainBunyi("tamat");
+    }
+
+    // Auto-transition ke rasmi (jika tiada bantahan)
+    if (patutAutoRasmi(rekod)) {
+      rekod.status = "rasmi";
+      adaPerubahan = true;
+      try { await window.storage.set(key, rekod, true); } catch (e) { console.error(e); }
+    }
+  }
+
+  renderCountdownOnly();
+  if (adaPerubahan) renderFull();
+}
+
+function mainBunyi(id) {
+  if (!audioSudahDibenarkan()) return;
+  const el = document.getElementById(id === "bantahan" ? "audio-bantahan" : "audio-tamat");
+  el.currentTime = 0;
+  el.play().catch((e) => console.warn("Audio disekat:", e));
+}
+
+// ---------- Render ----------
+function renderFull() {
+  const semua = jamAcara().filter((r) => !filterPeringkat || r.peringkat === filterPeringkat);
+  const tidakRasmi = sortTidakRasmi(semua.filter((r) => r.status === "countdown"));
+  const rasmi = sortRasmi(semua.filter((r) => r.status === "rasmi"));
+
+  document.getElementById("count-tidakrasmi").textContent = tidakRasmi.length;
+  document.getElementById("count-rasmi").textContent = rasmi.length;
+
+  const listTR = document.getElementById("list-tidakrasmi");
+  if (tidakRasmi.length === 0) {
+    listTR.innerHTML = '<div class="panel-empty">Tiada acara sedang berjalan.</div>';
+  } else {
+    listTR.innerHTML = tidakRasmi.map(cardTidakRasmiHtml).join("");
+  }
+
+  const listR = document.getElementById("list-rasmi");
+  if (rasmi.length === 0) {
+    listR.innerHTML = '<div class="panel-empty">Belum ada keputusan rasmi.</div>';
+  } else {
+    listR.innerHTML = rasmi.map(cardRasmiHtml).join("");
+  }
+}
+
+function renderCountdownOnly() {
+  document.querySelectorAll("[data-countdown-id]").forEach((el) => {
+    const rekod = acaraMap[keyAcara(el.getAttribute("data-countdown-id"))];
+    if (!rekod) return;
+    const remaining = computeRemainingMs(rekod);
+    el.textContent = formatMMSS(remaining);
+    el.classList.toggle("tamat", remaining !== null && remaining <= 0);
+  });
+  document.querySelectorAll("[data-card-id]").forEach((el) => {
+    const rekod = acaraMap[keyAcara(el.getAttribute("data-card-id"))];
+    if (!rekod) return;
+    el.classList.toggle("pulse-bantahan", !!rekod.adaBantahan);
+  });
+}
+
+function cardTidakRasmiHtml(r) {
+  const badgeCls = r.peringkat === "akhir" ? "badge-peringkat-a" : "badge-peringkat-sa";
+  const pulseCls = r.adaBantahan ? " pulse-bantahan" : "";
+  const statusCls = " status-" + r.status;
+  return `
+    <div class="card-acara${statusCls}${pulseCls}" data-card-id="${escapeHtml(r.id)}">
+      <div class="card-top">
+        <span class="card-no">#${escapeHtml(r.noAcara)}</span>
+        <span class="badge ${badgeCls}">${escapeHtml(labelPeringkat(r.peringkat))}</span>
+      </div>
+      <div class="card-nama">${escapeHtml(r.namaAcara)}</div>
+      <div class="card-kategori">${escapeHtml(r.kategori)}</div>
+      <div class="countdown" data-countdown-id="${escapeHtml(r.id)}">${formatMMSS(computeRemainingMs(r))}</div>
+      ${keputusanButtonHtml(settings, "btn-block") ? `<div style="margin-top:8px;">${keputusanButtonHtml(settings, "btn-block")}</div>` : ""}
+    </div>`;
+}
+
+function cardRasmiHtml(r) {
+  const badgeCls = r.peringkat === "akhir" ? "badge-peringkat-a" : "badge-peringkat-sa";
+  return `
+    <div class="card-rasmi">
+      <div>
+        <span class="card-no">#${escapeHtml(r.noAcara)}</span>
+        <strong style="margin-left:8px;">${escapeHtml(r.namaAcara)}</strong>
+        <span class="card-kategori" style="margin-left:8px;">${escapeHtml(r.kategori)}</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="badge ${badgeCls}">${escapeHtml(labelPeringkat(r.peringkat))}</span>
+        ${keputusanButtonHtml(settings)}
+        <span class="check">✓</span>
+      </div>
+    </div>`;
+}
+
+// ---------- Tapisan Peringkat ----------
+document.getElementById("tab-peringkat").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab");
+  if (!btn) return;
+  document.querySelectorAll("#tab-peringkat .tab").forEach((t) => t.classList.remove("active"));
+  btn.classList.add("active");
+  filterPeringkat = btn.getAttribute("data-val");
+  renderFull();
+});
+
+// ---------- Modal audio ----------
+function checkModalAudio() {
+  document.getElementById("modal-audio").style.display = audioSudahDibenarkan() ? "none" : "flex";
+}
+document.getElementById("btn-unlock-audio").addEventListener("click", () => {
+  tandaAudioDibenarkan();
+  // "unlock" dengan main+segera henti supaya browser bagi kebenaran untuk .play() akan datang
+  ["audio-bantahan", "audio-tamat"].forEach((id) => {
+    const el = document.getElementById(id);
+    el.play().then(() => { el.pause(); el.currentTime = 0; }).catch(() => {});
+  });
+  checkModalAudio();
+});
+
+// ---------- Modal akses admin ----------
+const modalAdmin = document.getElementById("modal-admin");
+document.getElementById("btn-open-admin").addEventListener("click", () => {
+  document.getElementById("admin-pass-input").value = "";
+  document.getElementById("admin-pass-error").textContent = "";
+  modalAdmin.style.display = "flex";
+  document.getElementById("admin-pass-input").focus();
+});
+document.getElementById("btn-admin-cancel").addEventListener("click", () => { modalAdmin.style.display = "none"; });
+document.getElementById("btn-admin-submit").addEventListener("click", submitAdminPass);
+document.getElementById("admin-pass-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitAdminPass(); });
+
+function submitAdminPass() {
+  const val = document.getElementById("admin-pass-input").value;
+  if (sahkanKataLaluan(val, settings)) {
+    window.open("admin/", "_blank");
+    modalAdmin.style.display = "none";
+  } else {
+    document.getElementById("admin-pass-error").textContent = "Kata laluan salah.";
+  }
+}
+
+// ---------- Init ----------
+checkModalAudio();
+loadData();
+setInterval(loadData, 3000);
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

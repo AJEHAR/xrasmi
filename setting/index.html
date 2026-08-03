@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setting — Keputusan Tak Rasmi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<!-- Modal gate kata laluan -->
+<div class="modal-overlay" id="modal-gate">
+  <div class="modal-box">
+    <h2>Setting</h2>
+    <p>Masukkan kata laluan untuk teruskan.</p>
+    <input type="password" id="gate-pass-input" placeholder="Kata laluan">
+    <div class="modal-error" id="gate-pass-error"></div>
+    <button class="btn btn-blue btn-block" id="btn-gate-submit">Masuk</button>
+  </div>
+</div>
+
+<div id="app-content" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1 class="topbar-title">Setting</h1>
+    </div>
+    <div class="topbar-right">
+      <a class="btn btn-ghost btn-sm" href="../admin/">← Admin</a>
+      <a class="btn btn-ghost btn-sm" href="../" target="_blank">Papan ↗</a>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <h1>Tetapan Program</h1>
+
+    <div class="form-row">
+      <label for="f-title">Tajuk Acara (dipaparkan di Papan)</label>
+      <input type="text" id="f-title" placeholder="cth: Kejohanan Sukan Tahunan 2026">
+    </div>
+
+    <div class="form-row">
+      <label for="f-durasi-sa">Durasi Countdown — Separuh Akhir (minit)</label>
+      <input type="number" id="f-durasi-sa" min="1" step="1" placeholder="15">
+    </div>
+
+    <div class="form-row">
+      <label for="f-durasi-a">Durasi Countdown — Akhir (minit)</label>
+      <input type="number" id="f-durasi-a" min="1" step="1" placeholder="30">
+    </div>
+
+    <div class="form-row">
+      <label for="f-link-keputusan">Link Keputusan (sama untuk SEMUA acara)</label>
+      <input type="url" id="f-link-keputusan" placeholder="https://...">
+      <div class="form-hint">Butang "Keputusan" pada setiap kad acara (Board &amp; Admin) akan buka link ni dalam tab baharu. Kosongkan untuk sembunyikan butang.</div>
+    </div>
+
+    <div class="form-row">
+      <label for="f-password">Kata Laluan Admin (boleh-ubah)</label>
+      <input type="text" id="f-password" placeholder="Kosongkan untuk guna kata laluan sandaran sahaja">
+      <div class="form-hint">Ini peringkat kemudahan UI sahaja, bukan keselamatan sebenar — sesiapa yang buka "View Page Source" boleh nampak kata laluan sandaran dalam kod.</div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-blue btn-block" id="btn-save">Simpan Tetapan</button>
+    </div>
+    <div class="save-status" id="save-status"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../storage.js"></script>
+<script src="../assets/common.js"></script>
+
+<script>
+let settings = { eventTitle: "Keputusan Tak Rasmi", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
+
+const GATE_SESSION_KEY = "ktr_admin_gate_ok"; // sama kunci sesi dengan admin/ — sekali masuk, guna kedua-dua
+
+async function initGate() {
+  try {
+    const res = await window.storage.get(SETTINGS_KEY, true);
+    if (res && res.value) settings = { ...settings, ...res.value };
+  } catch (e) { console.warn("Gagal pra-muat settings untuk gate:", e); }
+
+  if (sessionStorage.getItem(GATE_SESSION_KEY) === "true") {
+    unlockApp();
+  }
+}
+document.getElementById("btn-gate-submit").addEventListener("click", submitGate);
+document.getElementById("gate-pass-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitGate(); });
+function submitGate() {
+  const val = document.getElementById("gate-pass-input").value;
+  if (sahkanKataLaluan(val, settings)) {
+    sessionStorage.setItem(GATE_SESSION_KEY, "true");
+    unlockApp();
+  } else {
+    document.getElementById("gate-pass-error").textContent = "Kata laluan salah.";
+  }
+}
+
+function unlockApp() {
+  document.getElementById("modal-gate").style.display = "none";
+  document.getElementById("app-content").style.display = "block";
+  isiForm();
+}
+
+function isiForm() {
+  document.getElementById("f-title").value = settings.eventTitle || "";
+  document.getElementById("f-durasi-sa").value = settings.durasiSA || 15;
+  document.getElementById("f-durasi-a").value = settings.durasiA || 30;
+  document.getElementById("f-link-keputusan").value = settings.linkKeputusan || "";
+  document.getElementById("f-password").value = settings.adminPassword || "";
+}
+
+document.getElementById("btn-save").addEventListener("click", async () => {
+  const statusEl = document.getElementById("save-status");
+  const durasiSA = Number(document.getElementById("f-durasi-sa").value) || 15;
+  const durasiA = Number(document.getElementById("f-durasi-a").value) || 30;
+
+  const linkKeputusanRaw = document.getElementById("f-link-keputusan").value.trim();
+  if (linkKeputusanRaw && !/^https?:\/\//i.test(linkKeputusanRaw)) {
+    statusEl.style.color = "var(--red)";
+    statusEl.textContent = "Link Keputusan mesti bermula dengan http:// atau https:// — tidak disimpan.";
+    return;
+  }
+
+  settings = {
+    ...settings,
+    eventTitle: document.getElementById("f-title").value.trim() || "Keputusan Tak Rasmi",
+    durasiSA,
+    durasiA,
+    linkKeputusan: linkKeputusanRaw,
+    adminPassword: document.getElementById("f-password").value.trim()
+  };
+
+  try {
+    await window.storage.set(SETTINGS_KEY, settings, true);
+    statusEl.textContent = "✓ Tetapan disimpan.";
+    setTimeout(() => { statusEl.textContent = ""; }, 3000);
+  } catch (e) {
+    console.error(e);
+    statusEl.style.color = "var(--red)";
+    statusEl.textContent = "Gagal simpan. Sila cuba lagi.";
+  }
+});
+
+initGate();
+</script>
+</body>
+</html>
