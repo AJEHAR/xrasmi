@@ -85,7 +85,7 @@ Letakkan `bantahan.mp3` dan `tamat-masa.mp3` di dalam folder `sounds/`. Rujuk `s
 
 1. Buka `/setting/` (kata laluan sandaran default: `ktr-admin-2026` — **TUKAR** ini dalam `assets/common.js`, pembolehubah `FIXED_PASSWORD`, sebelum deploy sebenar).
 2. Isi **Tajuk Acara**, **Durasi Countdown SA/A**, (pilihan) **Link Keputusan** (buka dalam tab baharu bila butang "Keputusan ↗" pada mana-mana kad ditekan — SATU link sahaja untuk semua acara, kosongkan untuk sembunyikan butang), dan (pilihan) **Kata Laluan Admin** custom.
-3. Ke `/admin/` → klik **Import CSV** → pilih fail ikut format `templat-data.csv` (header: `No Acara, Kategori, Nama Acara, Peringkat`).
+3. Ke `/admin/` → klik **Import CSV** → pilih fail ikut format `templat-data.csv` (header: `No Acara, Kategori, Nama Acara, Peringkat/Pusingan, Hari` — fleksibel, terima `snake_case` & alias, column asing seperti `status`/`bilik`/`catatan` automatik diabaikan, order column tak penting).
    - Setiap import **memadam semua rekod sedia ada** dan menggantikannya sepenuhnya (ada confirm dialog).
    - Nilai `Peringkat` terima: `SA`, `A`, `SF`, `F`, `Separuh Akhir`, `Akhir`, `Semi-Final`, `Final` (case-insensitive).
 4. Buka `/` (Board) pada skrin TV/projektor — klik **"Mula & Benarkan Bunyi"** sekali untuk aktifkan audio.

@@ -22,6 +22,13 @@
       <button class="tab" data-val="separuh_akhir">SA</button>
       <button class="tab" data-val="akhir">A</button>
     </div>
+    <div class="tabs" id="tab-hari">
+      <button class="tab active" data-val="">Semua Hari</button>
+      <button class="tab" data-val="1">1</button>
+      <button class="tab" data-val="2">2</button>
+      <button class="tab" data-val="3">3</button>
+      <button class="tab" data-val="4">4</button>
+    </div>
     <button class="btn btn-ghost btn-sm" id="btn-open-admin" title="Akses Admin">⚙</button>
   </div>
 </div>
@@ -86,6 +93,7 @@
 let settings = { eventTitle: "KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
 let acaraMap = {};        // { firebaseKey: rekod }
 let filterPeringkat = "";
+let filterHari = "";
 let bunyiBantahanDimainkan = new Set();
 let bunyiTamatDimainkan = new Set();
 let calledAtTerakhir = {}; // { id: calledAt } — kesan bila countdown BAHARU bermula (Undo Start -> Start semula), reset penanda bunyi
@@ -186,7 +194,7 @@ function mainBunyi(id) {
 
 // ---------- Render ----------
 function renderFull() {
-  const semua = jamAcara().filter((r) => !filterPeringkat || r.peringkat === filterPeringkat);
+  const semua = jamAcara().filter((r) => (!filterPeringkat || r.peringkat === filterPeringkat) && (!filterHari || String(r.hari || "") === filterHari));
   const tidakRasmi = sortTidakRasmi(semua.filter((r) => r.status === "countdown"));
   const rasmi = sortRasmi(semua.filter((r) => r.status === "rasmi"));
 
@@ -235,7 +243,7 @@ function cardTidakRasmiHtml(r) {
         <span class="badge ${badgeCls}">${escapeHtml(labelPeringkat(r.peringkat))}</span>
       </div>
       <div class="card-nama">${escapeHtml(r.namaAcara)}</div>
-      <div class="card-kategori">${escapeHtml(r.kategori)}</div>
+      <div class="card-kategori">${escapeHtml(r.kategori)}${r.hari ? ` · Hari ${escapeHtml(r.hari)}` : ""}</div>
       <div class="countdown" data-countdown-id="${escapeHtml(r.id)}">${formatMMSS(computeRemainingMs(r))}</div>
       ${btnKeputusan ? `<div style="margin-top:8px;">${btnKeputusan}</div>` : ""}
     </div>`;
@@ -248,7 +256,7 @@ function cardRasmiHtml(r) {
       <div>
         <span class="card-no">#${escapeHtml(r.noAcara)}</span>
         <strong style="margin-left:8px;">${escapeHtml(r.namaAcara)}</strong>
-        <span class="card-kategori" style="margin-left:8px;">${escapeHtml(r.kategori)}</span>
+        <span class="card-kategori" style="margin-left:8px;">${escapeHtml(r.kategori)}${r.hari ? ` · Hari ${escapeHtml(r.hari)}` : ""}</span>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <span class="badge ${badgeCls}">${escapeHtml(labelPeringkat(r.peringkat))}</span>
@@ -265,6 +273,14 @@ document.getElementById("tab-peringkat").addEventListener("click", (e) => {
   document.querySelectorAll("#tab-peringkat .tab").forEach((t) => t.classList.remove("active"));
   btn.classList.add("active");
   filterPeringkat = btn.getAttribute("data-val");
+  renderFull();
+});
+document.getElementById("tab-hari").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab");
+  if (!btn) return;
+  document.querySelectorAll("#tab-hari .tab").forEach((t) => t.classList.remove("active"));
+  btn.classList.add("active");
+  filterHari = btn.getAttribute("data-val");
   renderFull();
 });
 

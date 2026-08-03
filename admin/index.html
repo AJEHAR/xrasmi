@@ -43,6 +43,10 @@
         <option value="akhir">Akhir (A)</option>
       </select>
     </div>
+    <div class="form-row">
+      <label for="edit-hari">Hari</label>
+      <input type="text" id="edit-hari" placeholder="cth: 1, 2, 3, 4">
+    </div>
     <div class="modal-error" id="edit-error"></div>
     <div style="display:flex; gap:10px; margin-top:6px;">
       <button class="btn btn-ghost btn-block" id="btn-edit-cancel">Batal</button>
@@ -72,13 +76,20 @@
         <button class="tab" data-val="separuh_akhir">SA</button>
         <button class="tab" data-val="akhir">A</button>
       </div>
+      <div class="tabs" id="tab-hari">
+        <button class="tab active" data-val="">Semua Hari</button>
+        <button class="tab" data-val="1">Hari 1</button>
+        <button class="tab" data-val="2">Hari 2</button>
+        <button class="tab" data-val="3">Hari 3</button>
+        <button class="tab" data-val="4">Hari 4</button>
+      </div>
     </div>
 
     <div class="admin-toolbar">
       <label class="btn btn-blue btn-sm" for="csv-input" style="cursor:pointer;">⭱ Import CSV (Padam &amp; Ganti)</label>
       <input type="file" id="csv-input" accept=".csv" style="display:none;">
       <button class="btn btn-ghost btn-sm" id="btn-download-template">⭳ Muat Turun Templat CSV</button>
-      <span class="form-hint" id="csv-hint">Header diperlukan: No Acara, Kategori, Nama Acara, Peringkat (had saiz fail: 2MB)</span>
+      <span class="form-hint" id="csv-hint">Header diperlukan: No Acara, Kategori, Nama Acara, Peringkat/Pusingan, Hari (had saiz fail: 2MB)</span>
     </div>
 
     <div class="import-report" id="import-report" style="display:none;"></div>
@@ -136,6 +147,7 @@ let settings = { eventTitle: "KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026
 let acaraMap = {};
 let searchTerm = "";
 let filterPeringkat = "";
+let filterHari = "";
 let bulkOperationInProgress = false;
 let bunyiBantahanDimainkan = new Set();
 let bunyiTamatDimainkan = new Set();
@@ -238,6 +250,7 @@ function mainBunyi(id) {
 // ---------- Render Kanban (4 panel) ----------
 function passFilter(r) {
   if (filterPeringkat && r.peringkat !== filterPeringkat) return false;
+  if (filterHari && String(r.hari || "") !== filterHari) return false;
   if (searchTerm) {
     const t = searchTerm.toLowerCase();
     const gab = (r.noAcara + " " + r.namaAcara + " " + r.kategori).toLowerCase();
@@ -319,7 +332,7 @@ function kanbanCardHtml(namaPanel, key, r) {
         </div>
       </div>
       <div class="kanban-card-nama">${escapeHtml(r.namaAcara)}</div>
-      <div class="kanban-card-kategori">${escapeHtml(r.kategori)}</div>
+      <div class="kanban-card-kategori">${escapeHtml(r.kategori)}${r.hari ? ` · Hari ${escapeHtml(r.hari)}` : ""}</div>
       ${countdownHtml}
       <div class="kanban-card-actions">${aksiHtml}${keputusanButtonHtml(settings)}</div>
     </div>`;
@@ -355,6 +368,7 @@ function bukaEditModal(key) {
   document.getElementById("edit-kategori").value = rekod.kategori || "";
   document.getElementById("edit-nama-acara").value = rekod.namaAcara || "";
   document.getElementById("edit-peringkat").value = rekod.peringkat || "separuh_akhir";
+  document.getElementById("edit-hari").value = rekod.hari || "";
   document.getElementById("edit-error").textContent = "";
   document.getElementById("modal-edit").style.display = "flex";
 }
@@ -370,6 +384,7 @@ document.getElementById("btn-edit-save").addEventListener("click", async () => {
   const kategori = document.getElementById("edit-kategori").value.trim();
   const namaAcara = document.getElementById("edit-nama-acara").value.trim();
   const peringkat = document.getElementById("edit-peringkat").value;
+  const hari = document.getElementById("edit-hari").value.trim();
 
   if (!noAcara && !namaAcara) {
     document.getElementById("edit-error").textContent = "Sekurang-kurangnya No Acara atau Nama Acara wajib diisi.";
@@ -377,12 +392,12 @@ document.getElementById("btn-edit-save").addEventListener("click", async () => {
   }
 
   try {
-    // Transaction: merge 4 medan ni atas nilai SERVER TERKINI (bukan snapshot semasa modal dibuka)
+    // Transaction: merge medan ni atas nilai SERVER TERKINI (bukan snapshot semasa modal dibuka)
     // -> kalau status/countdown berubah (contoh: admin lain tekan Rasmi) SEMASA modal edit terbuka,
     // perubahan tu TAK di-overwrite oleh Simpan Edit ni.
     const hasil = await window.storage.transaction(editKeySemasa, (rekodServer) => {
       if (!rekodServer) return rekodServer; // rekod dah dipadam (contoh: reimport CSV) -> abort
-      return { ...rekodServer, noAcara, kategori, namaAcara, peringkat };
+      return { ...rekodServer, noAcara, kategori, namaAcara, peringkat, hari };
     }, true);
 
     if (!hasil.committed) {
@@ -492,19 +507,27 @@ document.getElementById("tab-peringkat").addEventListener("click", (e) => {
   filterPeringkat = btn.getAttribute("data-val");
   renderKanban();
 });
+document.getElementById("tab-hari").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab");
+  if (!btn) return;
+  document.querySelectorAll("#tab-hari .tab").forEach((t) => t.classList.remove("active"));
+  btn.classList.add("active");
+  filterHari = btn.getAttribute("data-val");
+  renderKanban();
+});
 
 // ---------- Muat Turun Templat CSV ----------
 document.getElementById("btn-download-template").addEventListener("click", () => {
   const kandungan =
-    "No Acara,Kategori,Nama Acara,Peringkat\r\n" +
-    "1,Lelaki Bawah 12,Badminton Perseorangan,SA\r\n" +
-    "2,Wanita Bawah 12,Badminton Perseorangan,SA\r\n" +
-    "3,Lelaki Bawah 15,Larian 100m,Akhir\r\n" +
-    "4,Wanita Bawah 15,Larian 100m,Akhir\r\n" +
-    "5,Terbuka,Bola Tampar,Semi-Final\r\n" +
-    "6,Terbuka,Bola Jaring,Final\r\n" +
-    "7,Lelaki Bawah 18,Badminton Berpasangan,Separuh Akhir\r\n" +
-    "8,Wanita Bawah 18,Badminton Berpasangan,Akhir\r\n";
+    "No Acara,Kategori,Nama Acara,Peringkat,Hari\r\n" +
+    "1,Lelaki Bawah 12,Badminton Perseorangan,SA,1\r\n" +
+    "2,Wanita Bawah 12,Badminton Perseorangan,SA,1\r\n" +
+    "3,Lelaki Bawah 15,Larian 100m,Akhir,2\r\n" +
+    "4,Wanita Bawah 15,Larian 100m,Akhir,2\r\n" +
+    "5,Terbuka,Bola Tampar,Semi-Final,3\r\n" +
+    "6,Terbuka,Bola Jaring,Final,3\r\n" +
+    "7,Lelaki Bawah 18,Badminton Berpasangan,Separuh Akhir,4\r\n" +
+    "8,Wanita Bawah 18,Badminton Berpasangan,Akhir,4\r\n";
 
   // \uFEFF (BOM) di depan -> pastikan Excel buka terus dgn encoding UTF-8 betul (elak aksara rosak)
   const blob = new Blob(["\uFEFF" + kandungan], { type: "text/csv;charset=utf-8;" });
@@ -545,26 +568,35 @@ async function importCSV(file) {
   const text = await file.text();
   const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
 
-  function cariMedan(row, namaSasaran) {
-    const kunci = Object.keys(row).find((k) => k.trim().toLowerCase() === namaSasaran.toLowerCase());
+  // Terima pelbagai gaya penulisan header (spasi/underscore, huruf besar/kecil) DAN
+  // pelbagai alias nama (contoh: "Peringkat" = "Pusingan" — sistem lain guna istilah berbeza)
+  function normHeader(s) {
+    return String(s).trim().toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ");
+  }
+  function cariMedan(row, ...kemungkinanNama) {
+    const targets = kemungkinanNama.map(normHeader);
+    const kunci = Object.keys(row).find((k) => targets.includes(normHeader(k)));
     return kunci ? row[kunci] : "";
   }
 
   const barisSah = [];
   let gagalParse = 0;
   for (const row of parsed.data) {
-    const peringkat = parsePeringkat(cariMedan(row, "Peringkat"));
+    const peringkat = parsePeringkat(cariMedan(row, "Peringkat", "Pusingan"));
     if (!peringkat) { gagalParse++; continue; }
     const noAcara = String(cariMedan(row, "No Acara") || "").trim();
     const kategori = String(cariMedan(row, "Kategori") || "").trim();
     const namaAcara = String(cariMedan(row, "Nama Acara") || "").trim();
+    const hari = String(cariMedan(row, "Hari") || "").trim();
     if (!noAcara && !namaAcara) { gagalParse++; continue; }
-    barisSah.push({ id: uid(), noAcara, kategori, namaAcara, peringkat, status: "menunggu", adaBantahan: false, calledAt: null, durationMin: null, rasmiAt: null });
+    // Nota: column "status", "bilik", "catatan" (kalau ada dalam fail sistem lain) SENGAJA
+    // tidak dibaca langsung — sistem ni urus status sendiri melalui butang Admin, bukan dari CSV.
+    barisSah.push({ id: uid(), noAcara, kategori, namaAcara, peringkat, hari, status: "menunggu", adaBantahan: false, calledAt: null, durationMin: null, rasmiAt: null });
   }
 
   // Langkah 2: HENTI kalau TIADA satu pun baris sah — jangan padam apa-apa data sedia ada
   if (barisSah.length === 0) {
-    reportEl.textContent = `Import DIBATALKAN — tiada baris sah dijumpai (${gagalParse} baris gagal). Data sedia ada TIDAK disentuh. Semak header CSV (No Acara, Kategori, Nama Acara, Peringkat) & nilai Peringkat.`;
+    reportEl.textContent = `Import DIBATALKAN — tiada baris sah dijumpai (${gagalParse} baris gagal). Data sedia ada TIDAK disentuh. Semak header CSV (No Acara, Kategori, Nama Acara, Peringkat/Pusingan) & nilai Peringkat.`;
     tunjukToast("Import dibatalkan — tiada baris sah. Data sedia ada kekal selamat.", "error");
     return;
   }

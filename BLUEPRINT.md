@@ -120,18 +120,20 @@ UI guna label ringkas (`ms_singkat`) pada badge/kad ruang sempit; label penuh (`
 
 ### 4.4 Format CSV Sumber
 
-Header yang diperlukan (**hanya 4 column ini, tiada lain**):
+Header yang diperlukan (**fleksibel** — terima alias & `snake_case`, column asing diabaikan):
 
 ```
-No Acara,Kategori,Nama Acara,Peringkat
+No Acara,Kategori,Nama Acara,Peringkat,Hari
 ```
+
+Alias diterima (case-insensitive, `_` = spasi): `No Acara`=`no_acara`; `Nama Acara`=`nama_acara`; `Peringkat`=`Pusingan`=`pusingan`; `Hari`=`hari`. Column asing dari sistem lain (contoh: `status`, `bilik`, `catatan`) **automatik diabaikan** — tak perlu dibuang dari fail. Susunan column pun tak penting (dicari ikut nama, bukan kedudukan).
 
 Contoh:
 ```
-No Acara,Kategori,Nama Acara,Peringkat
-1,Lelaki Bawah 12,Badminton Perseorangan,SA
-2,Wanita Bawah 15,Larian 100m,Akhir
-3,Terbuka,Bola Tampar,Semi-Final
+No Acara,Kategori,Nama Acara,Peringkat,Hari
+1,Lelaki Bawah 12,Badminton Perseorangan,SA,1
+2,Wanita Bawah 15,Larian 100m,Akhir,2
+3,Terbuka,Bola Tampar,Semi-Final,3
 ```
 
 **`No Acara`** ialah **kunci unik** untuk operasi upsert (rujuk bahagian 6.2).
