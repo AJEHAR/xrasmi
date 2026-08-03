@@ -6,7 +6,7 @@ const PREFIX = "ktr"; // Keputusan Tak Rasmi — ubah kalau nak kongsi 1 Firebas
 const ACARA_PREFIX = PREFIX + ":acara:";
 const SETTINGS_KEY = PREFIX + ":settings";
 
-const FIXED_PASSWORD = "ajehar"; // sandaran tertanam dalam kod — TUKAR ni. Peringkat UI sahaja, BUKAN keselamatan sebenar.
+const FIXED_PASSWORD = "ktr-admin-2026"; // sandaran tertanam dalam kod — TUKAR ni. Peringkat UI sahaja, BUKAN keselamatan sebenar.
 
 function keyAcara(id) {
   return ACARA_PREFIX + id;
@@ -96,8 +96,8 @@ function sortTidakRasmi(list) {
 }
 
 function sortRasmi(list) {
-  // Terkini dulu (anggap calledAt sebagai penanda masa disahkan)
-  return [...list].sort((a, b) => (b.calledAt || 0) - (a.calledAt || 0));
+  // Terkini DISAHKAN dulu (rasmiAt = masa sebenar jadi Rasmi; fallback calledAt untuk rekod lama sebelum medan ni wujud)
+  return [...list].sort((a, b) => (b.rasmiAt || b.calledAt || 0) - (a.rasmiAt || a.calledAt || 0));
 }
 
 // ---------- Modal "Tekan untuk Mula" (kebenaran audio automatik) ----------
@@ -121,6 +121,21 @@ function keputusanButtonHtml(settingsObj, kelasTambahan) {
   const url = ((settingsObj && settingsObj.linkKeputusan) || "").trim();
   if (!url || !urlSelamat(url)) return "";
   return `<a class="btn btn-keputusan btn-sm${kelasTambahan ? " " + kelasTambahan : ""}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Keputusan ↗</a>`;
+}
+
+// ---------- Notifikasi "toast" (mesej kecil timbul di bawah skrin) ----------
+let _toastTimeout = null;
+function tunjukToast(mesej, jenis = "info") {
+  let el = document.getElementById("ktr-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "ktr-toast";
+    document.body.appendChild(el);
+  }
+  el.className = "toast show" + (jenis === "success" ? " toast-success" : jenis === "error" ? " toast-error" : "");
+  el.textContent = mesej;
+  clearTimeout(_toastTimeout);
+  _toastTimeout = setTimeout(() => { el.classList.remove("show"); }, 2600);
 }
 
 // ---------- Akses Admin (peringkat UI sahaja) ----------

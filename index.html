@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Keputusan Tak Rasmi</title>
+<title>KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
@@ -12,7 +12,7 @@
 
 <div class="topbar">
   <div class="topbar-left">
-    <h1 class="topbar-title" id="event-title">Keputusan Tak Rasmi</h1>
+    <h1 class="topbar-title" id="event-title">KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026</h1>
     <div class="sync-indicator"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Menyegerak...</span></div>
   </div>
   <div class="topbar-right">
@@ -80,12 +80,14 @@
 <script src="assets/common.js"></script>
 
 <script>
-let settings = { eventTitle: "Keputusan Tak Rasmi", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
+let settings = { eventTitle: "KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
 let acaraMap = {};        // { firebaseKey: rekod }
 let filterPeringkat = "";
 let bunyiBantahanDimainkan = new Set();
 let bunyiTamatDimainkan = new Set();
+let calledAtTerakhir = {}; // { id: calledAt } — kesan bila countdown BAHARU bermula (Undo Start -> Start semula), reset penanda bunyi
 let lastSyncAt = null;
+let lastSnapshot = ""; // guna untuk elak render semula DOM penuh bila data TIADA perubahan (elak flicker/animation restart di TV)
 
 function jamAcara() { return Object.values(acaraMap); }
 
@@ -99,8 +101,13 @@ async function loadData() {
     acaraMap = acaraRes || {};
     lastSyncAt = Date.now();
     setSyncStatus(true);
-    document.getElementById("event-title").textContent = settings.eventTitle || "Keputusan Tak Rasmi";
-    renderFull();
+    document.getElementById("event-title").textContent = settings.eventTitle || "KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026";
+
+    const snap = JSON.stringify({ acaraMap, eventTitle: settings.eventTitle, linkKeputusan: settings.linkKeputusan });
+    if (snap !== lastSnapshot) {
+      lastSnapshot = snap;
+      renderFull();
+    }
   } catch (e) {
     console.error("Gagal muat data, kekalkan paparan sedia ada:", e);
     setSyncStatus(false);
@@ -126,6 +133,14 @@ async function tick() {
   for (const [key, rekod] of Object.entries(acaraMap)) {
     if (rekod.status !== "countdown") continue;
 
+    // Kitaran countdown BAHARU dikesan (calledAt berubah drpd kali terakhir kita nampak id ni)
+    // -> reset penanda "dah main" supaya bunyi boleh main SEMULA untuk kitaran baharu ni
+    if (calledAtTerakhir[rekod.id] !== rekod.calledAt) {
+      bunyiBantahanDimainkan.delete(rekod.id);
+      bunyiTamatDimainkan.delete(rekod.id);
+      calledAtTerakhir[rekod.id] = rekod.calledAt;
+    }
+
     // Bunyi bantahan — main sekali sahaja bila flag ON
     if (rekod.adaBantahan && !bunyiBantahanDimainkan.has(rekod.id)) {
       bunyiBantahanDimainkan.add(rekod.id);
@@ -142,13 +157,17 @@ async function tick() {
     // Auto-transition ke rasmi (jika tiada bantahan)
     if (patutAutoRasmi(rekod)) {
       rekod.status = "rasmi";
+      rekod.rasmiAt = Date.now();
       adaPerubahan = true;
       try { await window.storage.set(key, rekod, true); } catch (e) { console.error(e); }
     }
   }
 
   renderCountdownOnly();
-  if (adaPerubahan) renderFull();
+  if (adaPerubahan) {
+    lastSnapshot = JSON.stringify({ acaraMap, eventTitle: settings.eventTitle, linkKeputusan: settings.linkKeputusan });
+    renderFull();
+  }
 }
 
 function mainBunyi(id) {
@@ -201,6 +220,7 @@ function cardTidakRasmiHtml(r) {
   const badgeCls = r.peringkat === "akhir" ? "badge-peringkat-a" : "badge-peringkat-sa";
   const pulseCls = r.adaBantahan ? " pulse-bantahan" : "";
   const statusCls = " status-" + r.status;
+  const btnKeputusan = keputusanButtonHtml(settings, "btn-block");
   return `
     <div class="card-acara${statusCls}${pulseCls}" data-card-id="${escapeHtml(r.id)}">
       <div class="card-top">
@@ -210,7 +230,7 @@ function cardTidakRasmiHtml(r) {
       <div class="card-nama">${escapeHtml(r.namaAcara)}</div>
       <div class="card-kategori">${escapeHtml(r.kategori)}</div>
       <div class="countdown" data-countdown-id="${escapeHtml(r.id)}">${formatMMSS(computeRemainingMs(r))}</div>
-      ${keputusanButtonHtml(settings, "btn-block") ? `<div style="margin-top:8px;">${keputusanButtonHtml(settings, "btn-block")}</div>` : ""}
+      ${btnKeputusan ? `<div style="margin-top:8px;">${btnKeputusan}</div>` : ""}
     </div>`;
 }
 
@@ -264,6 +284,9 @@ document.getElementById("btn-open-admin").addEventListener("click", () => {
   document.getElementById("admin-pass-input").focus();
 });
 document.getElementById("btn-admin-cancel").addEventListener("click", () => { modalAdmin.style.display = "none"; });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && modalAdmin.style.display !== "none") modalAdmin.style.display = "none";
+});
 document.getElementById("btn-admin-submit").addEventListener("click", submitAdminPass);
 document.getElementById("admin-pass-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitAdminPass(); });
 

@@ -112,7 +112,9 @@ Menunggu --[Start]--> Countdown --[auto bila 0, TIADA bantahan]--> Rasmi
 
 ## 7. Keselamatan — Had Jujur (Disahkan Melalui Audit)
 
-Kata laluan Admin/Setting adalah **peringkat UI sahaja** — ia sekat paparan `/admin/` dan `/setting/`, **BUKAN** sekat capaian data Firebase sebenar.
+**Aliran akses:** Kata laluan **cuma diminta SEKALI** di Board (butang "⚙" → buka `/admin/` dalam tab baharu). Selepas itu, `/admin/` dan `/setting/` **tidak minta kata laluan lagi** — pergerakan antara Admin ↔ Setting bebas tanpa gangguan berulang. **Nota:** ini bermakna sesiapa yang navigate TERUS ke URL `/admin/` atau `/setting/` (tanpa melalui Board dahulu) akan terus masuk **tanpa** diminta kata laluan langsung — reka bentuk ni sengaja dipermudahkan atas permintaan, memandangkan (macam di bawah) kata laluan pun bukan sekatan data sebenar.
+
+Kata laluan Admin adalah **peringkat UI sahaja** — ia sekat paparan `/admin/` dan `/setting/`, **BUKAN** sekat capaian data Firebase sebenar.
 
 **Sahkan sendiri risiko ni:** Buka Board (`/`), tekan `F12` → tab **Console**, taip:
 ```js
@@ -131,4 +133,15 @@ Ini akan papar `adminPassword` awak dalam teks biasa — **tanpa** perlu buka `/
 - ✅ Butang **Rasmi** (override manual semasa bantahan aktif) kini clear flag `adaBantahan` — elak rekod "rasmi" tersimpan dengan bantahan hantu yang muncul semula bila di-Undo
 - ✅ **Link Keputusan** disahkan mesti bermula `http://`/`https://` — elak suntikan `javascript:` yang boleh jalankan kod berbahaya pada peranti SEMUA orang yang klik butang tu
 - ✅ Parsing header CSV kini toleran casing/spacing (`"no acara"` = `"No Acara"` = `" No Acara "`), bukan cuma nilai `Peringkat`
+- ✅ **Mesej status Setting** tak lagi papar warna merah selepas 1x gagal — reset ke warna default bila berjaya
+- ✅ **Panel Rasmi susun ikut masa DISAHKAN sebenar** (`rasmiAt`) — bukan masa Start ditekan; acara yang lama dalam Bantahan sebelum disahkan takkan tersorok bawah lagi
+- ✅ **Elak "flicker" di TV** — Board & Admin cuma render semula DOM penuh bila data BENAR-BENAR berubah (bandingkan snapshot), bukan setiap 3 saat poll — animation pulse-bantahan tak lagi "gagap"
+- ✅ **Import CSV dipercepatkan** — padam & tulis rekod kini SELARI (`Promise.allSettled`), bukan satu-satu — import 100+ acara jauh lebih laju
+- ✅ Toast Bantahan kini terus nyatakan kalau ia menyebabkan **auto-lulus ke Rasmi serta-merta** (elak admin keliru status berubah dua kali)
+- ✅ **[Kritikal] Import CSV kini sahkan fail DULU sebelum padam data lama** — kalau CSV rosak/format salah (0 baris sah), import DIBATALKAN dan data sedia ada KEKAL selamat (dulu: data lama terus dipadam walaupun CSV baharu tak sah, tiada cara undo)
+- ✅ Import CSV kini beri amaran kalau ada **No Acara berulang** dalam fail sama
+- ✅ Import CSV kini ada **had saiz fail (2MB)** — elak fail salah/rosak besar tersilap upload
+- ✅ **[Ciri baharu] Butang Edit (✎)** pada setiap kad — betulkan No Acara/Kategori/Nama Acara/Peringkat SATU rekod tanpa perlu re-upload CSV penuh (yang akan reset status SEMUA acara lain)
+- ✅ **[Kritikal — audio]** Bunyi Bantahan/Tamat Masa **senyap pada kitaran kedua** kalau rekod di-Undo Start lepas tu di-Start semula (penanda "dah main" tak pernah cleanup). Dibaiki dengan kesan perubahan `calledAt` (= kitaran countdown baharu) untuk reset penanda bunyi secara automatik
+- ✅ **34 unit test + simulasi automatik** dijalankan ke atas semua fungsi teras, logik validasi CSV, dan logik bunyi — semua lulus
 

@@ -3,25 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Setting — Keputusan Tak Rasmi</title>
+<title>Setting — KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
 
-<!-- Modal gate kata laluan -->
-<div class="modal-overlay" id="modal-gate">
-  <div class="modal-box">
-    <h2>Setting</h2>
-    <p>Masukkan kata laluan untuk teruskan.</p>
-    <input type="password" id="gate-pass-input" placeholder="Kata laluan">
-    <div class="modal-error" id="gate-pass-error"></div>
-    <button class="btn btn-blue btn-block" id="btn-gate-submit">Masuk</button>
-  </div>
-</div>
-
-<div id="app-content" style="display:none;">
+<div id="app-content">
   <div class="topbar">
     <div class="topbar-left">
       <h1 class="topbar-title">Setting</h1>
@@ -77,35 +66,17 @@
 <script src="../assets/common.js"></script>
 
 <script>
-let settings = { eventTitle: "Keputusan Tak Rasmi", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
+let settings = { eventTitle: "KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
 
-const GATE_SESSION_KEY = "ktr_admin_gate_ok"; // sama kunci sesi dengan admin/ — sekali masuk, guna kedua-dua
-
-async function initGate() {
+// ---------- Init (tiada gate password — akses dikawal di Board sahaja) ----------
+async function initApp() {
   try {
     const res = await window.storage.get(SETTINGS_KEY, true);
     if (res && res.value) settings = { ...settings, ...res.value };
-  } catch (e) { console.warn("Gagal pra-muat settings untuk gate:", e); }
-
-  if (sessionStorage.getItem(GATE_SESSION_KEY) === "true") {
-    unlockApp();
+  } catch (e) {
+    console.error("Gagal muat tetapan sedia ada:", e);
+    tunjukToast("Gagal muat tetapan sedia ada. Cuba refresh.", "error");
   }
-}
-document.getElementById("btn-gate-submit").addEventListener("click", submitGate);
-document.getElementById("gate-pass-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitGate(); });
-function submitGate() {
-  const val = document.getElementById("gate-pass-input").value;
-  if (sahkanKataLaluan(val, settings)) {
-    sessionStorage.setItem(GATE_SESSION_KEY, "true");
-    unlockApp();
-  } else {
-    document.getElementById("gate-pass-error").textContent = "Kata laluan salah.";
-  }
-}
-
-function unlockApp() {
-  document.getElementById("modal-gate").style.display = "none";
-  document.getElementById("app-content").style.display = "block";
   isiForm();
 }
 
@@ -126,12 +97,13 @@ document.getElementById("btn-save").addEventListener("click", async () => {
   if (linkKeputusanRaw && !/^https?:\/\//i.test(linkKeputusanRaw)) {
     statusEl.style.color = "var(--red)";
     statusEl.textContent = "Link Keputusan mesti bermula dengan http:// atau https:// — tidak disimpan.";
+    tunjukToast("Link Keputusan tidak sah — mesti http:// atau https://", "error");
     return;
   }
 
   settings = {
     ...settings,
-    eventTitle: document.getElementById("f-title").value.trim() || "Keputusan Tak Rasmi",
+    eventTitle: document.getElementById("f-title").value.trim() || "KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026",
     durasiSA,
     durasiA,
     linkKeputusan: linkKeputusanRaw,
@@ -140,16 +112,19 @@ document.getElementById("btn-save").addEventListener("click", async () => {
 
   try {
     await window.storage.set(SETTINGS_KEY, settings, true);
+    statusEl.style.color = ""; // reset — elak warna merah kekal daripada percubaan gagal sebelum ni
     statusEl.textContent = "✓ Tetapan disimpan.";
     setTimeout(() => { statusEl.textContent = ""; }, 3000);
+    tunjukToast("Tetapan berjaya disimpan.", "success");
   } catch (e) {
     console.error(e);
     statusEl.style.color = "var(--red)";
     statusEl.textContent = "Gagal simpan. Sila cuba lagi.";
+    tunjukToast("Gagal simpan tetapan. Sila cuba lagi.", "error");
   }
 });
 
-initGate();
+initApp();
 </script>
 </body>
 </html>

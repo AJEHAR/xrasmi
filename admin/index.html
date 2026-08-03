@@ -3,23 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin — Keputusan Tak Rasmi</title>
+<title>Admin — KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
-
-<!-- Modal gate kata laluan (akses terus /admin/ tanpa melalui board) -->
-<div class="modal-overlay" id="modal-gate">
-  <div class="modal-box">
-    <h2>Panel Admin</h2>
-    <p>Masukkan kata laluan untuk teruskan.</p>
-    <input type="password" id="gate-pass-input" placeholder="Kata laluan">
-    <div class="modal-error" id="gate-pass-error"></div>
-    <button class="btn btn-blue btn-block" id="btn-gate-submit">Masuk</button>
-  </div>
-</div>
 
 <!-- Modal audio -->
 <div class="modal-overlay" id="modal-audio" style="display:none;">
@@ -30,10 +19,42 @@
   </div>
 </div>
 
-<div id="app-content" style="display:none;">
+<!-- Modal Edit Rekod -->
+<div class="modal-overlay" id="modal-edit" style="display:none;">
+  <div class="modal-box" style="text-align:left; max-width:420px;">
+    <h2 style="text-align:center;">Edit Rekod</h2>
+    <p style="text-align:center;">Betulkan maklumat acara. Status/countdown TIDAK terjejas.</p>
+    <div class="form-row">
+      <label for="edit-no-acara">No Acara</label>
+      <input type="text" id="edit-no-acara">
+    </div>
+    <div class="form-row">
+      <label for="edit-kategori">Kategori</label>
+      <input type="text" id="edit-kategori">
+    </div>
+    <div class="form-row">
+      <label for="edit-nama-acara">Nama Acara</label>
+      <input type="text" id="edit-nama-acara">
+    </div>
+    <div class="form-row">
+      <label for="edit-peringkat">Peringkat</label>
+      <select id="edit-peringkat" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--ink); color:var(--paper); font-family:var(--font-body); font-size:14px;">
+        <option value="separuh_akhir">Separuh Akhir (SA)</option>
+        <option value="akhir">Akhir (A)</option>
+      </select>
+    </div>
+    <div class="modal-error" id="edit-error"></div>
+    <div style="display:flex; gap:10px; margin-top:6px;">
+      <button class="btn btn-ghost btn-block" id="btn-edit-cancel">Batal</button>
+      <button class="btn btn-blue btn-block" id="btn-edit-save">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div id="app-content">
   <div class="topbar">
     <div class="topbar-left">
-      <h1 class="topbar-title">Admin — <span id="event-title">Keputusan Tak Rasmi</span></h1>
+      <h1 class="topbar-title">Admin — <span id="event-title">KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026</span></h1>
       <div class="sync-indicator"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Menyegerak...</span></div>
     </div>
     <div class="topbar-right">
@@ -56,7 +77,7 @@
     <div class="admin-toolbar">
       <label class="btn btn-blue btn-sm" for="csv-input" style="cursor:pointer;">⭱ Import CSV (Padam &amp; Ganti)</label>
       <input type="file" id="csv-input" accept=".csv" style="display:none;">
-      <span class="form-hint" id="csv-hint">Header diperlukan: No Acara, Kategori, Nama Acara, Peringkat</span>
+      <span class="form-hint" id="csv-hint">Header diperlukan: No Acara, Kategori, Nama Acara, Peringkat (had saiz fail: 2MB)</span>
     </div>
 
     <div class="import-report" id="import-report" style="display:none;"></div>
@@ -73,7 +94,7 @@
       <div class="kanban-col col-start">
         <div class="kanban-col-header">
           <div class="kanban-col-title">Start <span class="kanban-count" id="count-start">0</span></div>
-          <div class="kanban-col-sub">Countdown berjalan — keluar di Papan (Tidak Rasmi)</div>
+          <div class="kanban-col-sub">Countdown berjalan · disusun ikut baki masa PALING GENTING dulu</div>
         </div>
         <div class="kanban-scroll" id="col-start"></div>
       </div>
@@ -81,7 +102,7 @@
       <div class="kanban-col col-bantahan">
         <div class="kanban-col-header">
           <div class="kanban-col-title">Bantahan <span class="kanban-count" id="count-bantahan">0</span></div>
-          <div class="kanban-col-sub">Dibekukan sehingga Rasmi ditekan</div>
+          <div class="kanban-col-sub">Dibekukan · disusun ikut baki masa PALING GENTING dulu</div>
         </div>
         <div class="kanban-scroll" id="col-bantahan"></div>
       </div>
@@ -110,45 +131,19 @@
 <script src="../assets/common.js"></script>
 
 <script>
-let settings = { eventTitle: "Keputusan Tak Rasmi", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
+let settings = { eventTitle: "KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026", adminPassword: "", durasiSA: 15, durasiA: 30, linkKeputusan: "" };
 let acaraMap = {};
 let searchTerm = "";
 let filterPeringkat = "";
 let bulkOperationInProgress = false;
 let bunyiBantahanDimainkan = new Set();
 let bunyiTamatDimainkan = new Set();
+let calledAtTerakhir = {}; // { id: calledAt } — kesan bila countdown BAHARU bermula (Undo Start -> Start semula), reset penanda bunyi
 let lastSyncAt = null;
+let lastSnapshot = ""; // elak render semula Kanban penuh bila data TIADA perubahan (elak flicker)
 
-// ---------- Gate kata laluan ----------
-const GATE_SESSION_KEY = "ktr_admin_gate_ok";
-function tryEnterGate(val) {
-  return sahkanKataLaluan(val, settings);
-}
-async function initGate() {
-  // Muat settings dulu (tanpa auth gate) supaya adminPassword custom boleh disemak
-  try {
-    const res = await window.storage.get(SETTINGS_KEY, true);
-    if (res && res.value) settings = { ...settings, ...res.value };
-  } catch (e) { console.warn("Gagal pra-muat settings untuk gate:", e); }
-
-  if (sessionStorage.getItem(GATE_SESSION_KEY) === "true") {
-    unlockApp();
-  }
-}
-document.getElementById("btn-gate-submit").addEventListener("click", submitGate);
-document.getElementById("gate-pass-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitGate(); });
-function submitGate() {
-  const val = document.getElementById("gate-pass-input").value;
-  if (tryEnterGate(val)) {
-    sessionStorage.setItem(GATE_SESSION_KEY, "true");
-    unlockApp();
-  } else {
-    document.getElementById("gate-pass-error").textContent = "Kata laluan salah.";
-  }
-}
-function unlockApp() {
-  document.getElementById("modal-gate").style.display = "none";
-  document.getElementById("app-content").style.display = "block";
+// ---------- Init (tiada gate password — akses dikawal di Board sahaja) ----------
+function initApp() {
   checkModalAudio();
   loadData();
   setInterval(loadData, 3000);
@@ -167,8 +162,13 @@ async function loadData() {
     acaraMap = acaraRes || {};
     lastSyncAt = Date.now();
     setSyncStatus(true);
-    document.getElementById("event-title").textContent = settings.eventTitle || "Keputusan Tak Rasmi";
-    renderKanban();
+    document.getElementById("event-title").textContent = settings.eventTitle || "KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026";
+
+    const snap = JSON.stringify({ acaraMap, eventTitle: settings.eventTitle, linkKeputusan: settings.linkKeputusan });
+    if (snap !== lastSnapshot) {
+      lastSnapshot = snap;
+      renderKanban();
+    }
   } catch (e) {
     console.error("Gagal muat data, kekalkan paparan sedia ada:", e);
     setSyncStatus(false);
@@ -193,6 +193,12 @@ async function tick() {
   for (const [key, rekod] of Object.entries(acaraMap)) {
     if (rekod.status !== "countdown") continue;
 
+    if (calledAtTerakhir[rekod.id] !== rekod.calledAt) {
+      bunyiBantahanDimainkan.delete(rekod.id);
+      bunyiTamatDimainkan.delete(rekod.id);
+      calledAtTerakhir[rekod.id] = rekod.calledAt;
+    }
+
     if (rekod.adaBantahan && !bunyiBantahanDimainkan.has(rekod.id)) {
       bunyiBantahanDimainkan.add(rekod.id);
       mainBunyi("bantahan");
@@ -206,12 +212,16 @@ async function tick() {
 
     if (patutAutoRasmi(rekod)) {
       rekod.status = "rasmi";
+      rekod.rasmiAt = Date.now();
       adaPerubahan = true;
       try { await window.storage.set(key, rekod, true); } catch (e) { console.error(e); }
     }
   }
   refreshCountdownCells();
-  if (adaPerubahan) renderKanban();
+  if (adaPerubahan) {
+    lastSnapshot = JSON.stringify({ acaraMap, eventTitle: settings.eventTitle, linkKeputusan: settings.linkKeputusan });
+    renderKanban();
+  }
 }
 function mainBunyi(id) {
   if (!audioSudahDibenarkan()) return;
@@ -242,10 +252,22 @@ function panelUntuk(r) {
 function renderKanban() {
   const semua = Object.entries(acaraMap)
     .filter(([, r]) => passFilter(r))
-    .sort(([, a], [, b]) => naturalCompare(a.noAcara, b.noAcara));
+    .sort(([, a], [, b]) => naturalCompare(a.noAcara, b.noAcara)); // susunan asas: No Acara menaik
 
   const kumpulan = { belum: [], start: [], bantahan: [], rasmi: [] };
   semua.forEach(([key, r]) => kumpulan[panelUntuk(r)].push([key, r]));
+
+  // Panel Start & Bantahan: SUSUN SEMULA ikut baki masa PALING GENTING dulu (paling sikit baki = atas)
+  // — Belum Tayang & Rasmi KEKAL susunan No Acara asal (tak disentuh)
+  const ikutKegentingan = ([, a], [, b]) => {
+    const ra = computeRemainingMs(a), rb = computeRemainingMs(b);
+    if (ra === null && rb === null) return naturalCompare(a.noAcara, b.noAcara);
+    if (ra === null) return 1;
+    if (rb === null) return -1;
+    return ra - rb;
+  };
+  kumpulan.start.sort(ikutKegentingan);
+  kumpulan.bantahan.sort(ikutKegentingan);
 
   renderKanbanCol("belum", kumpulan.belum, "Tiada acara belum tayang.");
   renderKanbanCol("start", kumpulan.start, "Tiada acara sedang countdown.");
@@ -286,7 +308,10 @@ function kanbanCardHtml(namaPanel, key, r) {
     <div class="kanban-card${pulseCls}">
       <div class="kanban-card-top">
         <span class="kanban-card-no">#${escapeHtml(r.noAcara)}</span>
-        <span class="badge ${badgeCls}">${escapeHtml(labelPeringkat(r.peringkat))}</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="badge ${badgeCls}">${escapeHtml(labelPeringkat(r.peringkat))}</span>
+          <button class="btn btn-ghost btn-sm" style="padding:2px 7px;" data-act="edit" data-key="${escapeHtml(key)}" title="Edit rekod">✎</button>
+        </div>
       </div>
       <div class="kanban-card-nama">${escapeHtml(r.namaAcara)}</div>
       <div class="kanban-card-kategori">${escapeHtml(r.kategori)}</div>
@@ -305,46 +330,123 @@ function refreshCountdownCells() {
 
 function wireCardActions() {
   document.querySelectorAll("[data-act]").forEach((btn) => {
-    btn.addEventListener("click", () => handleAction(btn.getAttribute("data-act"), btn.getAttribute("data-key")));
+    const act = btn.getAttribute("data-act");
+    const key = btn.getAttribute("data-key");
+    if (act === "edit") {
+      btn.addEventListener("click", () => bukaEditModal(key));
+    } else {
+      btn.addEventListener("click", () => handleAction(act, key));
+    }
   });
 }
+
+// ---------- Modal Edit Rekod ----------
+let editKeySemasa = null;
+function bukaEditModal(key) {
+  const rekod = acaraMap[key];
+  if (!rekod) return;
+  editKeySemasa = key;
+  document.getElementById("edit-no-acara").value = rekod.noAcara || "";
+  document.getElementById("edit-kategori").value = rekod.kategori || "";
+  document.getElementById("edit-nama-acara").value = rekod.namaAcara || "";
+  document.getElementById("edit-peringkat").value = rekod.peringkat || "separuh_akhir";
+  document.getElementById("edit-error").textContent = "";
+  document.getElementById("modal-edit").style.display = "flex";
+}
+function tutupEditModal() {
+  document.getElementById("modal-edit").style.display = "none";
+  editKeySemasa = null;
+}
+document.getElementById("btn-edit-cancel").addEventListener("click", tutupEditModal);
+document.getElementById("btn-edit-save").addEventListener("click", async () => {
+  if (!editKeySemasa) return;
+  const rekod = acaraMap[editKeySemasa];
+  if (!rekod) { tutupEditModal(); return; }
+
+  const noAcara = document.getElementById("edit-no-acara").value.trim();
+  const kategori = document.getElementById("edit-kategori").value.trim();
+  const namaAcara = document.getElementById("edit-nama-acara").value.trim();
+  const peringkat = document.getElementById("edit-peringkat").value;
+
+  if (!noAcara && !namaAcara) {
+    document.getElementById("edit-error").textContent = "Sekurang-kurangnya No Acara atau Nama Acara wajib diisi.";
+    return;
+  }
+
+  // Cuma medan maklumat sahaja diubah — status/calledAt/adaBantahan/rasmiAt/durationMin TIDAK disentuh
+  const rekodBaharu = { ...rekod, noAcara, kategori, namaAcara, peringkat };
+
+  try {
+    await window.storage.set(editKeySemasa, rekodBaharu, true);
+    tutupEditModal();
+    await loadData();
+    tunjukToast(`Rekod #${noAcara} berjaya dikemas kini.`, "success");
+  } catch (e) {
+    console.error(e);
+    document.getElementById("edit-error").textContent = "Gagal simpan. Sila cuba lagi.";
+    tunjukToast("Gagal simpan pembetulan rekod.", "error");
+  }
+});
+document.getElementById("edit-nama-acara").addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("btn-edit-save").click(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.getElementById("modal-edit").style.display !== "none") tutupEditModal();
+});
 
 // ---------- Aksi status ----------
 async function handleAction(act, key) {
   const rekod = acaraMap[key];
   if (!rekod) return;
 
+  let autoRasmiSelepasBantahan = false;
+
   if (act === "start") {
     rekod.status = "countdown";
     rekod.calledAt = Date.now();
     rekod.durationMin = rekod.peringkat === "akhir" ? Number(settings.durasiA || 30) : Number(settings.durasiSA || 15);
     rekod.adaBantahan = false;
+    rekod.rasmiAt = null;
   } else if (act === "undo-start") {
     if (!confirm(`Undo Start untuk "${rekod.namaAcara}"? Countdown akan direset.`)) return;
     rekod.status = "menunggu";
     rekod.calledAt = null;
     rekod.durationMin = null;
     rekod.adaBantahan = false;
+    rekod.rasmiAt = null;
   } else if (act === "toggle-bantahan") {
     rekod.adaBantahan = !rekod.adaBantahan;
     if (!rekod.adaBantahan && isTamatMasa(rekod)) {
       // bantahan baru dibuka & masa dah tamat -> auto lulus serta-merta
       rekod.status = "rasmi";
+      rekod.rasmiAt = Date.now();
+      autoRasmiSelepasBantahan = true;
     }
   } else if (act === "rasmi") {
     rekod.status = "rasmi";
     rekod.adaBantahan = false; // override rasmi anggap bantahan telah diselesaikan/dilangkau
+    rekod.rasmiAt = Date.now();
   } else if (act === "undo-rasmi") {
     if (!confirm(`Undo Rasmi untuk "${rekod.namaAcara}"? Rekod akan kembali ke Tidak Rasmi.`)) return;
     rekod.status = "countdown"; // calledAt & durationMin KEKAL (bukan restart)
+    rekod.rasmiAt = null;
   }
+
+  const mesejToast = {
+    "start": `Countdown dimulakan — #${rekod.noAcara}`,
+    "undo-start": `Start dibatalkan (Undo) — #${rekod.noAcara}`,
+    "toggle-bantahan": autoRasmiSelepasBantahan
+      ? `Bantahan dimatikan & terus AUTO-LULUS ke Rasmi (masa dah tamat) — #${rekod.noAcara}`
+      : (rekod.adaBantahan ? `Bantahan diaktifkan — #${rekod.noAcara}` : `Bantahan dimatikan — #${rekod.noAcara}`),
+    "rasmi": `Disahkan RASMI — #${rekod.noAcara}`,
+    "undo-rasmi": `Rasmi dibatalkan (Undo) — #${rekod.noAcara}`
+  }[act] || "Dikemas kini.";
 
   try {
     await window.storage.set(key, rekod, true);
     await loadData(); // muat semula dari server — jangan percaya tempatan sahaja
+    tunjukToast(mesejToast, "success");
   } catch (e) {
     console.error(e);
-    alert("Gagal simpan perubahan. Sila cuba lagi.");
+    tunjukToast("Gagal simpan perubahan. Sila cuba lagi.", "error");
   }
 }
 
@@ -370,54 +472,86 @@ document.getElementById("csv-input").addEventListener("change", async (e) => {
   e.target.value = ""; // reset supaya boleh pilih fail sama semula
 });
 
-async function importCSV(file) {
-  const bilanganSedia = Object.keys(acaraMap).length;
-  const ok = confirm(`Import akan PADAM semua ${bilanganSedia} acara sedia ada dan gantikan sepenuhnya dengan data dari fail ini. Teruskan?`);
-  if (!ok) return;
+const HAD_SAIZ_CSV_BYTES = 2 * 1024 * 1024; // 2MB — CSV acara sepatutnya jauh lebih kecil drpd ni
 
-  bulkOperationInProgress = true;
+async function importCSV(file) {
+  // Langkah 0: Had saiz fail — elak fail salah/rosak besar tersilap upload
+  if (file.size > HAD_SAIZ_CSV_BYTES) {
+    tunjukToast(`Fail terlalu besar (${(file.size / 1024 / 1024).toFixed(1)}MB). Had maksimum 2MB.`, "error");
+    return;
+  }
+
   const reportEl = document.getElementById("import-report");
   reportEl.style.display = "block";
+  reportEl.textContent = "Membaca & mengesahkan fail...";
+
+  // Langkah 1: PARSE & SAHKAN CSV DULU — SEBELUM sentuh data sedia ada.
+  // Kalau fail rosak/kosong/format salah, data lama KEKAL selamat (tiada apa dipadam).
+  const text = await file.text();
+  const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
+
+  function cariMedan(row, namaSasaran) {
+    const kunci = Object.keys(row).find((k) => k.trim().toLowerCase() === namaSasaran.toLowerCase());
+    return kunci ? row[kunci] : "";
+  }
+
+  const barisSah = [];
+  let gagalParse = 0;
+  for (const row of parsed.data) {
+    const peringkat = parsePeringkat(cariMedan(row, "Peringkat"));
+    if (!peringkat) { gagalParse++; continue; }
+    const noAcara = String(cariMedan(row, "No Acara") || "").trim();
+    const kategori = String(cariMedan(row, "Kategori") || "").trim();
+    const namaAcara = String(cariMedan(row, "Nama Acara") || "").trim();
+    if (!noAcara && !namaAcara) { gagalParse++; continue; }
+    barisSah.push({ id: uid(), noAcara, kategori, namaAcara, peringkat, status: "menunggu", adaBantahan: false, calledAt: null, durationMin: null, rasmiAt: null });
+  }
+
+  // Langkah 2: HENTI kalau TIADA satu pun baris sah — jangan padam apa-apa data sedia ada
+  if (barisSah.length === 0) {
+    reportEl.textContent = `Import DIBATALKAN — tiada baris sah dijumpai (${gagalParse} baris gagal). Data sedia ada TIDAK disentuh. Semak header CSV (No Acara, Kategori, Nama Acara, Peringkat) & nilai Peringkat.`;
+    tunjukToast("Import dibatalkan — tiada baris sah. Data sedia ada kekal selamat.", "error");
+    return;
+  }
+
+  // Langkah 3: Amaran No Acara berulang (tak halang import, cuma beritahu admin)
+  const kiraNoAcara = {};
+  barisSah.forEach((r) => { if (r.noAcara) kiraNoAcara[r.noAcara] = (kiraNoAcara[r.noAcara] || 0) + 1; });
+  const noAcaraBerulang = Object.keys(kiraNoAcara).filter((n) => kiraNoAcara[n] > 1);
+
+  const bilanganSedia = Object.keys(acaraMap).length;
+  const mesejAmaranDuplikat = noAcaraBerulang.length
+    ? `\n⚠ No Acara berulang dalam fail ni: ${noAcaraBerulang.slice(0, 10).join(", ")}${noAcaraBerulang.length > 10 ? "..." : ""}`
+    : "";
+  const ok = confirm(
+    `Import akan PADAM semua ${bilanganSedia} acara sedia ada dan gantikan dengan ${barisSah.length} acara baharu daripada fail ini.` +
+    (gagalParse ? `\n(${gagalParse} baris dalam fail diabaikan sebab tak sah.)` : "") +
+    mesejAmaranDuplikat +
+    `\n\nTeruskan?`
+  );
+  if (!ok) { reportEl.style.display = "none"; return; }
+
+  bulkOperationInProgress = true;
   reportEl.textContent = "Memproses import...";
 
   try {
-    // 1. Padam semua rekod acara lama
+    // 4. Padam semua rekod acara lama (SELARI) — HANYA SELEPAS fail baharu disahkan sah
     const keyLama = Object.keys(acaraMap);
-    for (const key of keyLama) {
-      await window.storage.delete(key, true);
-    }
+    const hasilPadam = await Promise.allSettled(keyLama.map((key) => window.storage.delete(key, true)));
+    const gagalPadam = hasilPadam.filter((r) => r.status === "rejected").length;
 
-    // 2. Parse & import baharu — header ditrim & padan case-insensitive (elak silap "no acara" vs "No Acara")
-    const text = await file.text();
-    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
+    // 5. Import SELARI (Promise.allSettled — teruskan walaupun ada baris gagal tulis sebab isu rangkaian)
+    const hasilTulis = await Promise.allSettled(barisSah.map((rekodBaharu) => window.storage.set(keyAcara(rekodBaharu.id), rekodBaharu, true)));
+    const baharu = hasilTulis.filter((r) => r.status === "fulfilled").length;
+    const gagalTulis = hasilTulis.filter((r) => r.status === "rejected").length;
+    const gagal = gagalParse + gagalTulis;
 
-    function cariMedan(row, namaSasaran) {
-      const kunci = Object.keys(row).find((k) => k.trim().toLowerCase() === namaSasaran.toLowerCase());
-      return kunci ? row[kunci] : "";
-    }
-
-    let baharu = 0, gagal = 0;
-    for (const row of parsed.data) {
-      const peringkat = parsePeringkat(cariMedan(row, "Peringkat"));
-      if (!peringkat) { gagal++; continue; }
-      const noAcara = String(cariMedan(row, "No Acara") || "").trim();
-      const kategori = String(cariMedan(row, "Kategori") || "").trim();
-      const namaAcara = String(cariMedan(row, "Nama Acara") || "").trim();
-      if (!noAcara && !namaAcara) { gagal++; continue; }
-
-      const id = uid();
-      const rekodBaharu = {
-        id, noAcara, kategori, namaAcara, peringkat,
-        status: "menunggu", adaBantahan: false, calledAt: null, durationMin: null
-      };
-      await window.storage.set(keyAcara(id), rekodBaharu, true);
-      baharu++;
-    }
-
-    reportEl.textContent = `Import selesai: ${baharu} acara berjaya ditambah, ${gagal} baris gagal (peringkat tak sah / data tak lengkap).`;
+    reportEl.textContent = `Import selesai: ${baharu} acara berjaya ditambah, ${gagal} baris gagal (peringkat tak sah / data tak lengkap / ralat rangkaian).${noAcaraBerulang.length ? ` ⚠ ${noAcaraBerulang.length} No Acara berulang.` : ""}${gagalPadam ? ` (${gagalPadam} rekod lama gagal dipadam — semak sambungan.)` : ""}`;
+    tunjukToast(`Import selesai — ${baharu} ditambah, ${gagal} gagal, ${bilanganSedia} lama dipadam.`, "success");
   } catch (e) {
     console.error(e);
     reportEl.textContent = "Import gagal: " + e.message;
+    tunjukToast("Import gagal: " + e.message, "error");
   } finally {
     bulkOperationInProgress = false;
     await loadData();
@@ -438,7 +572,7 @@ document.getElementById("btn-unlock-audio").addEventListener("click", () => {
 });
 
 // ---------- Init ----------
-initGate();
+initApp();
 </script>
 </body>
 </html>
