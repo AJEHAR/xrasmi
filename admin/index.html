@@ -77,6 +77,7 @@
     <div class="admin-toolbar">
       <label class="btn btn-blue btn-sm" for="csv-input" style="cursor:pointer;">⭱ Import CSV (Padam &amp; Ganti)</label>
       <input type="file" id="csv-input" accept=".csv" style="display:none;">
+      <button class="btn btn-ghost btn-sm" id="btn-download-template">⭳ Muat Turun Templat CSV</button>
       <span class="form-hint" id="csv-hint">Header diperlukan: No Acara, Kategori, Nama Acara, Peringkat (had saiz fail: 2MB)</span>
     </div>
 
@@ -490,6 +491,32 @@ document.getElementById("tab-peringkat").addEventListener("click", (e) => {
   btn.classList.add("active");
   filterPeringkat = btn.getAttribute("data-val");
   renderKanban();
+});
+
+// ---------- Muat Turun Templat CSV ----------
+document.getElementById("btn-download-template").addEventListener("click", () => {
+  const kandungan =
+    "No Acara,Kategori,Nama Acara,Peringkat\r\n" +
+    "1,Lelaki Bawah 12,Badminton Perseorangan,SA\r\n" +
+    "2,Wanita Bawah 12,Badminton Perseorangan,SA\r\n" +
+    "3,Lelaki Bawah 15,Larian 100m,Akhir\r\n" +
+    "4,Wanita Bawah 15,Larian 100m,Akhir\r\n" +
+    "5,Terbuka,Bola Tampar,Semi-Final\r\n" +
+    "6,Terbuka,Bola Jaring,Final\r\n" +
+    "7,Lelaki Bawah 18,Badminton Berpasangan,Separuh Akhir\r\n" +
+    "8,Wanita Bawah 18,Badminton Berpasangan,Akhir\r\n";
+
+  // \uFEFF (BOM) di depan -> pastikan Excel buka terus dgn encoding UTF-8 betul (elak aksara rosak)
+  const blob = new Blob(["\uFEFF" + kandungan], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "templat-acara.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  tunjukToast("Templat CSV dimuat turun.", "success");
 });
 
 // ---------- Import CSV: Padam Semua & Ganti ----------

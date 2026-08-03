@@ -69,6 +69,14 @@ a { color: var(--blue); }
   margin: 0;
   text-transform: uppercase;
 }
+.topbar-subtitle {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin: 2px 0 0;
+}
 
 .topbar-left { display: flex; flex-direction: column; gap: 2px; }
 .topbar-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -214,11 +222,13 @@ a { color: var(--blue); }
 .card-rasmi .check { color: var(--green); font-size: 18px; }
 
 /* ---------- Board grid ---------- */
+.board-page { display: flex; flex-direction: column; min-height: 100vh; }
 .board-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0;
-  min-height: calc(100vh - 74px);
+  flex: 1;
+  min-height: 0; /* elak flex overflow, biar .panel-scroll dalaman yang scroll, bukan seluruh halaman */
 }
 .board-panel { padding: 18px 20px 20px; overflow: hidden; display: flex; flex-direction: column; }
 .board-panel + .board-panel { border-left: 2px solid var(--border); }
@@ -439,6 +449,16 @@ table.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .form-actions { display: flex; gap: 10px; margin-top: 22px; }
 .save-status { font-size: 13px; color: var(--green); margin-top: 10px; min-height: 16px; }
 
+.board-footer {
+  text-align: center;
+  padding: 10px 16px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  opacity: 0.6;
+}
+
 /* ---------- Misc ---------- */
 .toast {
   position: fixed;
@@ -470,6 +490,7 @@ table.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
   /* A — Tajuk panjang: kecilkan & rapatkan baris supaya tak makan ruang skrin berlebihan */
   .topbar-title { font-size: 17px; line-height: 1.25; }
+  .topbar-subtitle { font-size: 11px; }
 
   /* B — Besarkan saiz sentuh tab & butang gear (piawaian minimum ~44px) */
   .tabs .tab { padding: 11px 14px; min-height: 40px; display: inline-flex; align-items: center; }
