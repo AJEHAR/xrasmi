@@ -312,15 +312,17 @@ function kanbanCardHtml(namaPanel, key, r) {
 
   let aksiHtml = "";
   if (namaPanel === "belum") {
-    aksiHtml = `<button class="btn btn-blue btn-sm" data-act="start" data-key="${escapeHtml(key)}">Start</button>`;
+    aksiHtml = `<button class="btn btn-blue btn-sm kanban-btn-full" data-act="start" data-key="${escapeHtml(key)}">Start</button>`;
   } else if (namaPanel === "start" || namaPanel === "bantahan") {
     aksiHtml = `
       <button class="btn btn-ghost btn-sm" data-act="undo-start" data-key="${escapeHtml(key)}">↺ Undo</button>
-      <button class="btn btn-amber btn-sm${r.adaBantahan ? " active" : ""}" data-act="toggle-bantahan" data-key="${escapeHtml(key)}">${r.adaBantahan ? "Bantahan ●" : "Bantahan"}</button>
+      <button class="btn btn-amber btn-sm${r.adaBantahan ? " active" : ""}" data-act="toggle-bantahan" data-key="${escapeHtml(key)}">Bantahan</button>
       <button class="btn btn-green btn-sm" data-act="rasmi" data-key="${escapeHtml(key)}">Rasmi</button>`;
   } else if (namaPanel === "rasmi") {
-    aksiHtml = `<button class="btn btn-ghost btn-sm" data-act="undo-rasmi" data-key="${escapeHtml(key)}">↺ Undo Rasmi</button>`;
+    aksiHtml = `<button class="btn btn-ghost btn-sm kanban-btn-full" data-act="undo-rasmi" data-key="${escapeHtml(key)}">↺ Undo Rasmi</button>`;
   }
+
+  const btnKeputusan = keputusanButtonHtml(settings, "kanban-btn-full");
 
   return `
     <div class="kanban-card${pulseCls}">
@@ -334,7 +336,8 @@ function kanbanCardHtml(namaPanel, key, r) {
       <div class="kanban-card-nama">${escapeHtml(r.namaAcara)}</div>
       <div class="kanban-card-kategori">${escapeHtml(r.kategori)}${r.hari ? ` · Hari ${escapeHtml(r.hari)}` : ""}</div>
       ${countdownHtml}
-      <div class="kanban-card-actions">${aksiHtml}${keputusanButtonHtml(settings)}</div>
+      <div class="kanban-card-actions">${aksiHtml}</div>
+      ${btnKeputusan ? `<div class="kanban-card-keputusan">${btnKeputusan}</div>` : ""}
     </div>`;
 }
 

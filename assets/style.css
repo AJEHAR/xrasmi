@@ -344,8 +344,11 @@ a { color: var(--blue); }
 .kanban-card-nama { font-weight: 700; font-size: 14px; margin: 2px 0; }
 .kanban-card-kategori { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
 .kanban-card .countdown { font-size: 22px; margin: 4px 0 8px; }
-.kanban-card-actions { display: flex; gap: 5px; flex-wrap: wrap; }
-.kanban-card-actions .btn { flex: 1; min-width: 0; }
+.kanban-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.kanban-card-actions .btn { flex: 1 1 auto; min-width: 64px; white-space: nowrap; padding: 7px 8px; }
+.kanban-card-actions .btn.kanban-btn-full { flex-basis: 100%; }
+.kanban-card-keputusan { margin-top: 6px; }
+.kanban-card-keputusan .btn { width: 100%; }
 
 @media (max-width: 1100px) {
   .admin-kanban { grid-template-columns: repeat(2, 1fr); }
