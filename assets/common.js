@@ -120,7 +120,7 @@ function urlSelamat(url) {
 function keputusanButtonHtml(settingsObj, kelasTambahan) {
   const url = ((settingsObj && settingsObj.linkKeputusan) || "").trim();
   if (!url || !urlSelamat(url)) return "";
-  return `<a class="btn btn-keputusan btn-sm${kelasTambahan ? " " + kelasTambahan : ""}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Keputusan ↗</a>`;
+  return `<a class="btn btn-keputusan btn-sm${kelasTambahan ? " " + kelasTambahan : ""}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><span class="btn-keputusan-label">Keputusan</span> ↗</a>`;
 }
 
 // ---------- Notifikasi "toast" (mesej kecil timbul di bawah skrin) ----------

@@ -4,6 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026</title>
+<meta name="description" content="Kira detik keputusan tidak rasmi — Kejohanan Olahraga Pendidikan Khas MSS Pahang 2026.">
+
+<!-- Open Graph (WhatsApp, Telegram, Facebook, dsb) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Kejohanan Olahraga Pendidikan Khas MSS Pahang 2026">
+<meta property="og:description" content="Kira detik keputusan tidak rasmi — pantau status Tidak Rasmi & Rasmi secara masa-nyata.">
+<meta property="og:image" content="https://xrasmi.syazr.com/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://xrasmi.syazr.com/">
+<meta property="og:site_name" content="Keputusan Tak Rasmi">
+<meta property="og:locale" content="ms_MY">
+
+<!-- Twitter/X Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Kejohanan Olahraga Pendidikan Khas MSS Pahang 2026">
+<meta name="twitter:description" content="Kira detik keputusan tidak rasmi — pantau status Tidak Rasmi & Rasmi secara masa-nyata.">
+<meta name="twitter:image" content="https://xrasmi.syazr.com/assets/og-image.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
@@ -17,24 +36,34 @@
     <div class="sync-indicator"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Menyegerak...</span></div>
   </div>
   <div class="topbar-right">
-    <div class="tabs" id="tab-peringkat">
-      <button class="tab active" data-val="">Semua</button>
-      <button class="tab" data-val="separuh_akhir">SA</button>
-      <button class="tab" data-val="akhir">A</button>
-    </div>
-    <div class="tabs" id="tab-hari">
-      <button class="tab active" data-val="">Semua Hari</button>
-      <button class="tab" data-val="1">1</button>
-      <button class="tab" data-val="2">2</button>
-      <button class="tab" data-val="3">3</button>
-      <button class="tab" data-val="4">4</button>
-    </div>
+    <button class="btn btn-ghost btn-sm" id="btn-toggle-filter" title="Tapis">⚲ Tapis <span id="filter-toggle-icon">⌄</span></button>
     <button class="btn btn-ghost btn-sm" id="btn-open-admin" title="Akses Admin">⚙</button>
   </div>
 </div>
 
+<div class="filter-row" id="filter-row">
+  <div class="tabs" id="tab-peringkat">
+    <button class="tab active" data-val="">Semua</button>
+    <button class="tab" data-val="separuh_akhir">SA</button>
+    <button class="tab" data-val="akhir">A</button>
+  </div>
+  <div class="tabs" id="tab-hari">
+    <button class="tab active" data-val="">Semua Hari</button>
+    <button class="tab" data-val="1">1</button>
+    <button class="tab" data-val="2">2</button>
+    <button class="tab" data-val="3">3</button>
+    <button class="tab" data-val="4">4</button>
+  </div>
+</div>
+
+<!-- Tab Tidak Rasmi/Rasmi — MOBILE SAHAJA (desktop kekal 2-panel serentak) -->
+<div class="board-tabs-mobile" id="board-tabs-mobile">
+  <button class="board-tab-mobile active" data-tab="tidakrasmi">Tidak Rasmi <span class="board-tab-count" id="tabcount-tidakrasmi">0</span></button>
+  <button class="board-tab-mobile" data-tab="rasmi">Rasmi <span class="board-tab-count" id="tabcount-rasmi">0</span></button>
+</div>
+
 <div class="board-grid">
-  <div class="board-panel">
+  <div class="board-panel" id="panel-tidakrasmi">
     <div class="panel-header">
       <span class="panel-title tidakrasmi">Tidak Rasmi</span>
       <span class="panel-count" id="count-tidakrasmi">0</span>
@@ -43,7 +72,7 @@
       <div class="panel-empty">Tiada acara sedang berjalan.</div>
     </div>
   </div>
-  <div class="board-panel">
+  <div class="board-panel" id="panel-rasmi">
     <div class="panel-header">
       <span class="panel-title rasmi">Rasmi</span>
       <span class="panel-count" id="count-rasmi">0</span>
@@ -94,6 +123,8 @@ let settings = { eventTitle: "KEJOHANAN OLAHRAGA PENDIDIKAN KHAS MSS PAHANG 2026
 let acaraMap = {};        // { firebaseKey: rekod }
 let filterPeringkat = "";
 let filterHari = "";
+let boardTabAktif = "tidakrasmi"; // mobile sahaja — default Tidak Rasmi (per keputusan)
+let cardExpandedSet = new Set(); // id rekod yang di-expand (mobile) — kekal antara render
 let bunyiBantahanDimainkan = new Set();
 let bunyiTamatDimainkan = new Set();
 let calledAtTerakhir = {}; // { id: calledAt } — kesan bila countdown BAHARU bermula (Undo Start -> Start semula), reset penanda bunyi
@@ -200,6 +231,8 @@ function renderFull() {
 
   document.getElementById("count-tidakrasmi").textContent = tidakRasmi.length;
   document.getElementById("count-rasmi").textContent = rasmi.length;
+  document.getElementById("tabcount-tidakrasmi").textContent = tidakRasmi.length;
+  document.getElementById("tabcount-rasmi").textContent = rasmi.length;
 
   const listTR = document.getElementById("list-tidakrasmi");
   if (tidakRasmi.length === 0) {
@@ -236,8 +269,10 @@ function cardTidakRasmiHtml(r) {
   const pulseCls = r.adaBantahan ? " pulse-bantahan" : "";
   const statusCls = " status-" + r.status;
   const btnKeputusan = keputusanButtonHtml(settings, "btn-block");
-  return `
-    <div class="card-acara${statusCls}${pulseCls}" data-card-id="${escapeHtml(r.id)}">
+  const expanded = cardExpandedSet.has(r.id);
+
+  const desktop = `
+    <div class="card-acara${statusCls}${pulseCls} desktop-card-wrap" data-card-id="${escapeHtml(r.id)}">
       <div class="card-top">
         <span class="card-no">#${escapeHtml(r.noAcara)}</span>
         <span class="badge ${badgeCls}">${escapeHtml(labelPeringkat(r.peringkat))}</span>
@@ -247,12 +282,31 @@ function cardTidakRasmiHtml(r) {
       <div class="countdown" data-countdown-id="${escapeHtml(r.id)}">${formatMMSS(computeRemainingMs(r))}</div>
       ${btnKeputusan ? `<div style="margin-top:8px;">${btnKeputusan}</div>` : ""}
     </div>`;
+
+  const mobile = `
+    <div class="cardm${pulseCls} mobile-card-wrap" data-card-id="${escapeHtml(r.id)}">
+      <div class="cardm-row">
+        <span class="cardm-no">#${escapeHtml(r.noAcara)}</span>
+        <span class="cardm-nama">${escapeHtml(r.namaAcara)}</span>
+        <span class="cardm-masa countdown" data-countdown-id="${escapeHtml(r.id)}">${formatMMSS(computeRemainingMs(r))}</span>
+        <button class="cardm-eye" data-toggle-id="${escapeHtml(r.id)}" aria-label="Papar butiran">${expanded ? "✕" : "👁"}</button>
+      </div>
+      <div class="cardm-detail" style="display:${expanded ? "block" : "none"};">
+        <div class="cardm-meta">${escapeHtml(r.kategori)}${r.hari ? ` · Hari ${escapeHtml(r.hari)}` : ""} · ${escapeHtml(labelPeringkat(r.peringkat))}</div>
+        ${btnKeputusan ? `<div style="margin-top:6px;">${btnKeputusan}</div>` : ""}
+      </div>
+    </div>`;
+
+  return desktop + mobile;
 }
 
 function cardRasmiHtml(r) {
   const badgeCls = r.peringkat === "akhir" ? "badge-peringkat-a" : "badge-peringkat-sa";
-  return `
-    <div class="card-rasmi">
+  const btnKeputusan = keputusanButtonHtml(settings);
+  const expanded = cardExpandedSet.has(r.id);
+
+  const desktop = `
+    <div class="card-rasmi desktop-card-wrap">
       <div>
         <span class="card-no">#${escapeHtml(r.noAcara)}</span>
         <strong style="margin-left:8px;">${escapeHtml(r.namaAcara)}</strong>
@@ -260,10 +314,26 @@ function cardRasmiHtml(r) {
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <span class="badge ${badgeCls}">${escapeHtml(labelPeringkat(r.peringkat))}</span>
-        ${keputusanButtonHtml(settings)}
+        ${btnKeputusan}
         <span class="check">✓</span>
       </div>
     </div>`;
+
+  const mobile = `
+    <div class="cardm cardm-rasmi mobile-card-wrap">
+      <div class="cardm-row">
+        <span class="cardm-no">#${escapeHtml(r.noAcara)}</span>
+        <span class="cardm-nama">${escapeHtml(r.namaAcara)}</span>
+        <span class="cardm-masa check">✓</span>
+        <button class="cardm-eye" data-toggle-id="${escapeHtml(r.id)}" aria-label="Papar butiran">${expanded ? "✕" : "👁"}</button>
+      </div>
+      <div class="cardm-detail" style="display:${expanded ? "block" : "none"};">
+        <div class="cardm-meta">${escapeHtml(r.kategori)}${r.hari ? ` · Hari ${escapeHtml(r.hari)}` : ""} · ${escapeHtml(labelPeringkat(r.peringkat))}</div>
+        ${btnKeputusan ? `<div style="margin-top:6px;">${btnKeputusan}</div>` : ""}
+      </div>
+    </div>`;
+
+  return desktop + mobile;
 }
 
 // ---------- Tapisan Peringkat ----------
@@ -282,6 +352,48 @@ document.getElementById("tab-hari").addEventListener("click", (e) => {
   btn.classList.add("active");
   filterHari = btn.getAttribute("data-val");
   renderFull();
+});
+
+// ---------- Toggle Filter (mobile) ----------
+const filterRow = document.getElementById("filter-row");
+document.getElementById("btn-toggle-filter").addEventListener("click", () => {
+  const kini = filterRow.classList.toggle("expanded");
+  document.getElementById("filter-toggle-icon").textContent = kini ? "⌃" : "⌄";
+});
+
+// ---------- Tab Tidak Rasmi/Rasmi (mobile) ----------
+function updateBoardTabUI() {
+  document.querySelectorAll(".board-tab-mobile").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-tab") === boardTabAktif);
+  });
+  document.getElementById("panel-tidakrasmi").classList.toggle("mobile-inactive-panel", boardTabAktif !== "tidakrasmi");
+  document.getElementById("panel-rasmi").classList.toggle("mobile-inactive-panel", boardTabAktif !== "rasmi");
+}
+document.getElementById("board-tabs-mobile").addEventListener("click", (e) => {
+  const btn = e.target.closest(".board-tab-mobile");
+  if (!btn) return;
+  boardTabAktif = btn.getAttribute("data-tab");
+  updateBoardTabUI();
+});
+updateBoardTabUI();
+
+// ---------- Eye toggle (papar/sembunyi butiran kad — mobile) — event delegation, kekal berfungsi selepas re-render ----------
+document.body.addEventListener("click", (e) => {
+  const btn = e.target.closest(".cardm-eye");
+  if (!btn) return;
+  const id = btn.getAttribute("data-toggle-id");
+  const kad = btn.closest(".cardm");
+  const detail = kad.querySelector(".cardm-detail");
+  const kiniExpanded = cardExpandedSet.has(id);
+  if (kiniExpanded) {
+    cardExpandedSet.delete(id);
+    detail.style.display = "none";
+    btn.textContent = "👁";
+  } else {
+    cardExpandedSet.add(id);
+    detail.style.display = "block";
+    btn.textContent = "✕";
+  }
 });
 
 // ---------- Modal audio ----------
