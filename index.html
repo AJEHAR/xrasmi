@@ -23,6 +23,17 @@
 <meta name="twitter:description" content="Kira detik keputusan tidak rasmi — pantau status Tidak Rasmi & Rasmi secara masa-nyata.">
 <meta name="twitter:image" content="https://xrasmi.syazr.com/assets/og-image.png">
 
+<!-- PWA: boleh "Install App" terus dari browser -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="assets/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+<meta name="theme-color" content="#0e1116">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Keputusan Tak Rasmi">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
@@ -37,6 +48,7 @@
   </div>
   <div class="topbar-right">
     <button class="btn btn-ghost btn-sm" id="btn-toggle-filter" title="Tapis">⚲ Tapis <span id="filter-toggle-icon">⌄</span></button>
+    <button class="btn btn-blue btn-sm" id="btn-install-app" style="display:none;" title="Install App">⭳ Install App</button>
     <button class="btn btn-ghost btn-sm" id="btn-open-admin" title="Akses Admin">⚙</button>
   </div>
 </div>
@@ -394,6 +406,45 @@ document.body.addEventListener("click", (e) => {
     detail.style.display = "block";
     btn.textContent = "✕";
   }
+});
+
+// ---------- PWA: Service Worker + Install App ----------
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch((e) => console.warn("SW gagal daftar:", e));
+  });
+}
+
+let _deferredInstallPrompt = null;
+const btnInstall = document.getElementById("btn-install-app");
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  if (!isStandalone) btnInstall.style.display = "inline-flex";
+});
+
+if (isIOS && !isStandalone) {
+  // iOS Safari tiada 'beforeinstallprompt' — tunjuk butang yang bagi arahan manual sebaliknya
+  btnInstall.style.display = "inline-flex";
+}
+
+btnInstall.addEventListener("click", async () => {
+  if (_deferredInstallPrompt) {
+    _deferredInstallPrompt.prompt();
+    const hasil = await _deferredInstallPrompt.userChoice;
+    _deferredInstallPrompt = null;
+    if (hasil.outcome === "accepted") btnInstall.style.display = "none";
+  } else if (isIOS) {
+    tunjukToast("iOS: tekan ikon Share (kotak+anak panah) → 'Add to Home Screen'", "info");
+  }
+});
+
+window.addEventListener("appinstalled", () => {
+  btnInstall.style.display = "none";
+  tunjukToast("Berjaya dipasang! Cari ikon di skrin utama.", "success");
 });
 
 // ---------- Modal audio ----------

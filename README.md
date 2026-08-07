@@ -161,3 +161,19 @@ Kalau butang **Simpan** (Setting) atau mana-mana aksi (Start/Bantahan/dsb di Adm
 5. **Cuba hard refresh** (`Ctrl+Shift+R` / `Cmd+Shift+R`) — elak browser guna fail JS/CSS lama yang tersimpan dalam cache, terutama selepas re-deploy fail baharu.
 6. **Pastikan GitHub Pages dah selesai deploy versi TERKINI** — semak tab "Actions" di repo GitHub untuk pastikan build terakhir berjaya & guna fail paling baharu.
 7. Sejak kemas kini terkini, semua operasi Firebase ada **had masa 10 saat** — kalau betul-betul "hang" (bukan ralat serta-merta), sistem akan papar mesej timeout selepas 10 saat, bukan senyap selamanya.
+
+## 9. PWA — "Install App" pada Telefon/Desktop
+
+Board (`/`) kini boleh **dipasang** macam app biasa (ikon di skrin utama, buka tanpa address bar browser):
+
+- **Android/Chrome/Edge**: klik butang **"⭳ Install App"** di Board → pop-up install muncul terus
+- **iOS/Safari**: klik butang yang sama → arahan keluar (tekan ikon **Share** → **"Add to Home Screen"**) — Apple tak benarkan trigger automatik macam Android
+- **Desktop (Chrome/Edge)**: ikon install (⊕) akan muncul dalam address bar juga sebagai alternatif
+
+**Fail berkaitan:**
+- `manifest.json` — nama app, ikon, warna tema
+- `sw.js` (service worker) — keperluan teknikal untuk "installable". Sengaja **network-first** (bukan cache-first) — papan ni papar keputusan LIVE, jadi tak boleh papar data lapuk dari cache. Cache cuma fallback kalau betul-betul offline.
+- `assets/icons/` — ikon PWA (192px, 512px, versi "maskable" untuk Android adaptive icon)
+- `favicon.ico` — ikon tab browser
+
+**Nota:** Admin & Setting **tak** ada manifest/install button (PWA install cuma untuk Board — skrin awam yang paling kerap dibuka semula). Admin/Setting tetap boleh diakses biasa melalui link.
